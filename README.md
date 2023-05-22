@@ -58,15 +58,21 @@ With `-e`:
   </tr>
 </table>
 
-As you can see, with `-bb` parameters model is centered and with smaller size compare to voxel without this parameter. So, without it different models could be in different positions, which could be bad for training of the neural network.
+As you can see, with `-bb` parameters model is centered and with smaller size compare to voxel without this parameter. So, without it different models could be in different positions and with different scales, which could be bad for training of the neural network.
 
 NOTICE! That unit cube only could be working for ShapeNet data, and for example on `bunny.obj` results are could be different, see examples below.
 
-Without `-e`:
+Here are view results for bunny below command will be shown filename in `data` folder. Without `-e`:
 <table>
   <tr>
-    <th><center>./binvox -bb -0.5 -0.5 -0.5 0.5 0.5 0.5 -d 32 ./bunny.obj</center></th>
-    <th><center>./binvox -d 32 ./bunny.obj</center></th>
+    <th>
+      <center>"./binvox -bb -0.5 -0.5 -0.5 0.5 0.5 0.5 -d 32 ./bunny.obj"</center>
+      <center>data/bunny_box.binvox</center>
+    </th>
+    <th>
+      <center>"./binvox -d 32 ./bunny.obj"</center>
+      <center>data/bunny_nobox.binvox</center>
+    </th>
   </tr>
   <tr>
     <td><img src="./images/bunny_box.png"></td>
@@ -77,8 +83,14 @@ Without `-e`:
 With `-e`:
 <table>
   <tr>
-    <th><center>./binvox -e -bb -0.5 -0.5 -0.5 0.5 0.5 0.5 -d 32 ./bunny.obj</center></th>
-    <th><center>./binvox -e -d 32 ./bunny.obj</center></th>
+    <th>
+      <center>"./binvox -e -bb -0.5 -0.5 -0.5 0.5 0.5 0.5 -d 32 ./bunny.obj"</center>
+      <center>data/bunny_ebox.binvox</center>
+    </th>
+    <th>
+      <center>"./binvox -e -d 32 ./bunny.obj"</center>
+      <center>data/bunny_e.binvox</center>
+    </th>
   </tr>
   <tr>
     <td><img src="./images/bunny_ebox.png"></td>
