@@ -122,6 +122,31 @@ If you don't have gpu, just insert `--gpu-count 0` then only CPU will be used. A
 
 Example of how use blender scripts on bunny can be found in [this notebook](./render-blender/test.ipynb).
 
+Example of the render view on `bunny.obj` could be found [here](./render-blender/bunny_views).
+Few examples:
+<table>
+  <tr>
+    <th>
+      <center>Image</center>
+    </th>
+    <th>
+      <center>Depth</center>
+    </th>
+  </tr>
+  <tr>
+    <td><img src="./render-blender/bunny_views/00.png"></td>
+    <td><img src="./render-blender/bunny_views/00_depth_0001.png"></td>
+  </tr>
+  <tr>
+    <td><img src="./render-blender/bunny_views/08.png"></td>
+    <td><img src="./render-blender/bunny_views/08_depth_0001.png"></td>
+  </tr>
+  <tr>
+    <td><img src="./render-blender/bunny_views/16.png"></td>
+    <td><img src="./render-blender/bunny_views/16_depth_0001.png"></td>
+  </tr>
+</table>
+
 Known problems:
 - Not well tested code for now. There could be some bugs with render.
 - Object files from ShapeNetV1 doesn't loaded properly by Blender with version 3.5.0. If we attempt to load it will be dropped "Segmentation fault". ShapeNetV2 works as expected and its tested.
