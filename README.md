@@ -98,7 +98,7 @@ Current module render each model with different random 24 views (number could be
 
 Blender version: ***3.5.0.*** 
 
-In order to use Blender with GPU (CUDA\OPTIX) and use it in Python we must build from source Blender with corresponding parameters. Dockerfile could be find [here](https://gist.github.com/TaplierShiru/2b85e422703976aa1f9ec45db2ec5069) with comments. Where is option to build it only for CPU, but it could be slower and very long if you want to generate views for ShapeNet dataset. 
+In order to use Blender with GPU (CUDA\OPTIX) and use it in Python we must build from source Blender with corresponding parameters. Dockerfile could be find [here](https://gist.github.com/TaplierShiru/2b85e422703976aa1f9ec45db2ec5069) with comments. In the comments you could find how build it only for CPU, but it could be slower and very long if you want to generate views for ShapeNet dataset. 
 
 How to use code in this module on ShapeNet dataset:
 ```bash
@@ -112,6 +112,7 @@ Example of how use blender scripts on bunny can be found in [this notebook](./re
 
 Known problems:
 - Not well tested code for now. There could be some bugs with render.
+- Object files from ShapeNetV1 doesn't loaded properly by Blender with version 3.5.0. If we attempt to load it will be dropped "Segmentation fault". ShapeNetV2 works as expected and its tested.
 - Its seems that after sometime certain objects are skipped in render pipeline. Need to investigate this. For now temporary solution is to start scripts again with `--overwrite` parameter which will skip models with created views.
 
 
