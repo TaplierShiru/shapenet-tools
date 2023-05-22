@@ -12,6 +12,7 @@ from tqdm import tqdm
 # Add utils folder
 import sys
 sys.path.append('../utils')
+import binvox_rw
 
 from point_sample_tools import find_all_files_with_exts
 
