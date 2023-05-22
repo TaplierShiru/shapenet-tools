@@ -4,7 +4,7 @@ The main purpose of this repo is to provide different tools to work with ShapeNe
 Implemented tools (modules):
 1. [Voxelization via Binvox](#voxelization)
 2. [Render of the model view via Blender](#blender-model-render)
-3. [Point sample](#point-sample)
+3. [Point sample](#point_sample)
 
 Each module work independent of others tools except `utils` where placed shared code.
 
@@ -18,11 +18,11 @@ In each module\folder you can find `requirements.txt` file with specific package
 
 
 ## Voxelization
-For voxelization [Binvox](https://www.patrickmin.com/binvox/) is used. In order to start with scripts inside this module, download corresponding program from origin site of this software: https://www.patrickmin.com/binvox/
+For voxelization [Binvox](https://www.patrickmin.com/binvox/) is used. In order to start with scripts inside this module, download corresponding program from origin site of this software: https://www.patrickmin.com/binvox/. Place it inside `voxelization` folder.
 
-How to use code in this module on ShapeNet dataset:
+How to use code in the folder `voxelization` on ShapeNet dataset:
 ```bash
-python3 voxelization.generate_voxels_binvox.py /path/to/ShapeNetV2 \
+python3 generate_voxels_binvox.py /path/to/ShapeNetV2 \
   -s /path/to/save/voxelized/models \ 
   -n 6 --in-unit-cube --exact-generation
 ```
@@ -112,17 +112,17 @@ Blender version: ***3.5.0.***
 
 In order to use Blender with GPU (CUDA\OPTIX) and use it in Python we must build from source Blender with corresponding parameters. Dockerfile could be find [here](https://gist.github.com/TaplierShiru/2b85e422703976aa1f9ec45db2ec5069) with comments. In the comments you could find how build it only for CPU, but it could be slower and very long if you want to generate views for ShapeNet dataset. 
 
-How to use code in this module on ShapeNet dataset:
+How to use code in the folder `render_blender` on ShapeNet dataset:
 ```bash
-python3 render-blender.render_blender.py /path/to/ShapeNetV2 \
+python3 render_blender.py /path/to/ShapeNetV2 \
   -s /path/to/save/views -b 200 -n 6 --gpu-count 1 --overwrite
 ```
 
 If you don't have gpu, just insert `--gpu-count 0` then only CPU will be used. Also this parameter support more than one GPU, i.e. next commands are possible: `--gpu-count 2`, `--gpu-count 3` and etc...
 
-Example of how use blender scripts on bunny can be found in [this notebook](./render-blender/test.ipynb).
+Example of how use blender scripts on bunny can be found in [this notebook](./render_blender/test.ipynb).
 
-Example of the render view on `bunny.obj` could be found [here](./render-blender/bunny_views).
+Example of the render view on `bunny.obj` could be found [here](./render_blender/bunny_views).
 Few examples:
 <table>
   <tr>
@@ -134,16 +134,16 @@ Few examples:
     </th>
   </tr>
   <tr>
-    <td><img src="./render-blender/bunny_views/00.png"></td>
-    <td><img src="./render-blender/bunny_views/00_depth_0001.png"></td>
+    <td><img src="./render_blender/bunny_views/00.png"></td>
+    <td><img src="./render_blender/bunny_views/00_depth_0001.png"></td>
   </tr>
   <tr>
-    <td><img src="./render-blender/bunny_views/08.png"></td>
-    <td><img src="./render-blender/bunny_views/08_depth_0001.png"></td>
+    <td><img src="./render_blender/bunny_views/08.png"></td>
+    <td><img src="./render_blender/bunny_views/08_depth_0001.png"></td>
   </tr>
   <tr>
-    <td><img src="./render-blender/bunny_views/16.png"></td>
-    <td><img src="./render-blender/bunny_views/16_depth_0001.png"></td>
+    <td><img src="./render_blender/bunny_views/16.png"></td>
+    <td><img src="./render_blender/bunny_views/16_depth_0001.png"></td>
   </tr>
 </table>
 
@@ -156,13 +156,13 @@ Known problems:
 ## Point sample
 The main purpose of this module is to generate points from big-size voxel (256<sup>3</sup>). Most of the code taken from [IM-NET dataset preparation](https://github.com/czq142857/IM-NET/tree/master/point_sampling). But personally I found this code very slow and in order to speed up it I used Numba here, which gives a huge boost compare to original code.
 
-How to use code in this module on ShapeNet dataset:
+How to use code in the folder `point_sample` on ShapeNet dataset:
 ```bash
-python3 point-sample.point_sample_main.py /path/to/ShapeNetV2 \
+python3 point_sample_main.py /path/to/ShapeNetV2 \
   -s /path/to/save/views -n 6
 ```
 
-Example of how use point sample scripts on bunny can be found in [this notebook](./point-sample/test.ipynb).
+Example of how use point sample scripts on bunny can be found in [this notebook](./point_sample/test.ipynb).
 
 # License
 This project is licensed under the terms of the MIT license (see LICENSE for details).
