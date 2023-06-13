@@ -302,9 +302,9 @@ if __name__ == '__main__':
     parser.add_argument('--gpu-ids', nargs='*', default=None,
                         help='Ids of the gpu from zero to number of GPUs, which will be used by Blender. Example: 0 2 3.'
                         'NOTICE! This parameter has a higher priority than gpu-counter which will be ignored.')
-    parser.add_argument('--gpu-uniform-id', action='store_false', 
-                        help='If GPU ids are provided or gpu counter more than 1, when by default ids will be uniform distributed for all processors, '
-                        'otherwise if this parameter will be provided every process will use provided gpu ids without change.')
+    parser.add_argument('--gpu-uniform-id', action='store_true', 
+                        help='If GPU ids are provided or gpu counter more than 1, when with this parameter ids will be uniform distributed for all processors, '
+                        'otherwise (by default) every process will use provided gpu ids without change.')
     parser.add_argument('--overwrite', action='store_true',
                         help='Overwrite images if they were created. ')
     parser.add_argument('--generate-type', choices=['r2n2', 'all', 'custom'], 

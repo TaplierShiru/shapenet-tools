@@ -115,10 +115,104 @@ In order to use Blender with GPU (CUDA\OPTIX) and use it in Python we must build
 How to use code in the folder `render_blender` on ShapeNet dataset:
 ```bash
 python3 render_blender.py /path/to/ShapeNetV2 \
-  -s /path/to/save/views -b 200 -n 6 --gpu-count 1 --overwrite
+  -s /path/to/save/views -b 200 -n 6 --gpu-count 1
 ```
 
-If you don't have gpu, just insert `--gpu-count 0` then only CPU will be used. Also this parameter support more than one GPU, i.e. next commands are possible: `--gpu-count 2`, `--gpu-count 3` and etc...
+If you don't have gpu, just insert `--gpu-count 0` then only CPU will be used. Also this parameter support more than one GPU, i.e. next commands are possible: `--gpu-count 2`, `--gpu-count 3` and etc... By default if more than one gpu is provided when all provded GPUs will be used in every process, which are not sufficient and not fast. To enable ids of the GPus to be uniformed distributed between all process add parameter `--gpu-uniform-id`. So, as an example:
+```bash
+python3 render_blender.py /path/to/ShapeNetV2 \
+  -s /path/to/save/views -b 200 -n 8 --gpu-count 4 --gpu-uniform-id
+```
+
+I found that single gpu for single process much faster than usage of several GPUs for single process. As a proof I test it on category car (02958343) and model id 63599f1dc1511c25d76439fb95cdd2ed, and here are results in the table:
+<table>
+  <tr>
+    <th>
+      <center>Configuration</center>
+    </th>
+    <th>
+      <center>Device type</center>
+    </th>
+    <th>
+      <center>GPU counter</center>
+    </th>
+    <th>
+      <center>Time (seconds)</center>
+    </th>
+    <th>
+      <center>Command</center>
+    </th>
+  </tr>
+  <tr>
+    <td>GPU + CPU</td>
+    <td>OPTIX</td>
+    <td>4</td>
+    <td>55</td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type OPTIX -t --debug</code></td>
+  </tr>
+  <tr style="background: grey">
+    <td>GPU + CPU</td>
+    <td>OPTIX</td>
+    <td>1</td>
+    <td><b>30</b></td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type OPTIX -t --debug</code></td>
+  </tr>
+  <tr>
+    <td>GPU</td>
+    <td>OPTIX</td>
+    <td>4</td>
+    <td>57</td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type OPTIX --gpu-only -t --debug</code></td>
+  </tr>
+  <tr style="background: grey">
+    <td>GPU</td>
+    <td>OPTIX</td>
+    <td>1</td>
+    <td><b>29</b></td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type OPTIX --gpu-only -t --debug</code></td>
+  </tr>
+  
+  <tr>
+    <td>GPU + CPU</td>
+    <td>CUDA</td>
+    <td>4</td>
+    <td>50</td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type CUDA -t --debug</code></td>
+  </tr>
+  <tr style="background: grey">
+    <td>GPU + CPU</td>
+    <td>CUDA</td>
+    <td>1</td>
+    <td><b>29</b></td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type CUDA -t --debug</code></td>
+  </tr>
+  <tr>
+    <td>GPU</td>
+    <td>CUDA</td>
+    <td>4</td>
+    <td>51</td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type CUDA --gpu-only -t --debug</code></td>
+  </tr>
+  <tr style="background: grey">
+    <td>GPU</td>
+    <td>CUDA</td>
+    <td>1</td>
+    <td><b>28</b></td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type CUDA --gpu-only -t --debug</code></td>
+  </tr>
+
+  <tr>
+    <td>CPU</td>
+    <td>CPU</td>
+    <td>0</td>
+    <td>485</td>
+    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 0 -t --debug</code></td>
+  </tr>
+  
+</table>
+
+From this table difference between CUDA and OPTIX is small, and also single GPU for single process is much faster.
+
 
 Example of how use blender scripts on bunny can be found in [this notebook](./render_blender/test.ipynb).
 
@@ -160,6 +254,12 @@ How to use code in the folder `point_sample` on ShapeNet dataset:
 ```bash
 python3 point_sample_main.py /path/to/ShapeNetV2 \
   -s /path/to/save/views -n 6
+```
+
+If you want to use points along with renders, you can pass folder path to the folder with renders to add them into final h5 file. Example command:
+```bash
+python3 point_sample_main.py /path/to/ShapeNetV2 \
+  -s /path/to/save/views -n 6 -r /path/to/ShapeNetRenderingsV2
 ```
 
 Example of how use point sample scripts on bunny can be found in [this notebook](./point_sample/test.ipynb).
