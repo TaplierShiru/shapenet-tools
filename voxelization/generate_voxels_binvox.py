@@ -80,7 +80,6 @@ def main(args):
         args_to_generate_voxels[args.num_process-1:]
     )
     
-    
     workers = [
         Process(
             target=start_generate_voxels, 
@@ -88,12 +87,18 @@ def main(args):
         ) 
         for i in range(args.num_process)
     ]
-    for p in workers:
-        p.start()
+    
+    try:
+        for p in workers:
+            p.start()
 
-    for p in workers:
-        p.join()
-    print("finished")
+        for p in workers:
+            p.join()
+    except Exception as e:
+        print('Close processes...')
+        for p in workers:
+            p.kill()
+    
 
     
     

@@ -249,11 +249,18 @@ def main(args):
             ) 
             for i in range(args.num_process)
         ]
-        for p in workers:
-            p.start()
 
-        for p in workers:
-            p.join()
+        try:
+            for p in workers:
+                p.start()
+
+            for p in workers:
+                p.join()
+        except Exception as e:
+            print('Close processes...')
+            for p in workers:
+                p.kill()
+            exit(-1)
     
     
 if __name__ == '__main__':
