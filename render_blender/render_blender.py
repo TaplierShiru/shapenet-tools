@@ -1,50 +1,12 @@
-import argparse
-import traceback
 import os
 import contextlib
 from math import radians
+from typing import List
 import numpy as np
 from PIL import Image
-from tempfile import TemporaryFile
-from contextlib import contextmanager
 import bpy
-import sys
-from multiprocessing import Pool
 
-
-R2N2_MODELS = [
-    '02691156', '02933112', '03001627', '03636649', 
-    '04090263', '04379243', '04530566', '02828884', 
-    '02958343', '03211117', '03691459', '04256520', 
-    '04401088'  
-]
-
-ALL_SHAPENET_MODELS = [
-    '02691156', '02808440', '02871439', '02933112', 
-    '02958343', '03085013', '03325088', '03593526', 
-    '03691459', '03790512', '03948459', '04090263', 
-    '04330267', '04468005', '02747177', '02818832', 
-    '02876657', '02942699', '02992529', '03207941', 
-    '03337140', '03624134', '03710193', '03797390', 
-    '03991062', '04099429', '04379243', '04530566',
-    '02773838', '02828884', '02880940', '02946921', 
-    '03001627', '03211117', '03467517', '03636649', 
-    '03759954', '03928116', '04004475', '04225987', 
-    '04401088', '04554684', '02801938', '02843684', 
-    '02924116', '02954340', '03046257', '03261776', 
-    '03513137', '03642806', '03761084', '03938244', 
-    '04074963', '04256520', '04460130',
-]
-
-
-@contextmanager
-def stdout_redirected(new_stdout):
-    save_stdout = sys.stdout
-    sys.stdout = new_stdout
-    try:
-        yield None
-    finally:
-        sys.stdout = save_stdout
+from constants import OPTIX, CUDA, OPENCL
 
 
 def voxel2mesh(voxels):
@@ -109,14 +71,28 @@ def write_obj(filename, verts, faces):
 class BaseRenderer:
     model_idx   = 0
 
-    def __init__(self, generate_depth=True, generate_normal=False, generate_albedo=False, gpu_count=0):
-        if gpu_count > 0:
+    def __init__(
+            self, generate_depth=True, generate_normal=False, generate_albedo=False, 
+            gpu_count=0, gpu_ids: List[int]=None, gpu_only=False, reset_scene=False, preferred_device_type=OPTIX):
+        if reset_scene:
+            # Sometimes blender could not proper init model and drop weird errors about light
+            # That its doesnt exist...
+            # Dump solution here is to try again render and reset scene to default, in most cases its work as exptected
+            # Reset current scene to default
+            bpy.ops.wm.read_homefile(app_template="")
+        use_gpu_ids = gpu_ids is not None
+        if gpu_count > 0 or (use_gpu_ids and len(gpu_ids) > 0):
             # Taken from here:
             #    https://github.com/nytimes/rd-blender-docker/issues/3#issuecomment-618459326
             bpy.data.scenes['Scene'].render.engine = 'CYCLES'
             cprefs = bpy.context.preferences.addons['cycles'].preferences
+
+            preferred_device_type = preferred_device_type.upper()
+            all_devices_types = [OPTIX, CUDA, OPENCL]
+            all_devices_types.remove(preferred_device_type) # Remove selected device from all types
+            all_devices_types.insert(0, preferred_device_type) # Set selected device at the start aka top priority
             # Attempt to set GPU device types if available
-            for compute_device_type in ('OPTIX', 'CUDA', 'OPENCL'):
+            for compute_device_type in all_devices_types:
                 try:
                     cprefs.compute_device_type = compute_device_type
                     break
@@ -126,17 +102,28 @@ class BaseRenderer:
                 scene.cycles.device = 'GPU'
             # get_devices() to let Blender detects GPU device
             cprefs.get_devices()
-            # Enable all GPU devices
-            enabled_gpu_count = 0
+            # Find all needed GPU devices
+            gpu_devices_list = []
             for device in cprefs.devices:
-                # TODO: Should CPU device also be enabled?
                 # Turn on only devices which type equal to enabled one
-                if device.type == cprefs.compute_device_type and enabled_gpu_count < gpu_count:
+                if device.type == cprefs.compute_device_type:
+                    gpu_devices_list.append(device)
+                elif device.type == 'CPU' and not gpu_only:
+                    # TODO: Should CPU device also be enabled?
                     device.use = True
-                    enabled_gpu_count += 1
                 else:
                     # Make sure we use only what we want
                     device.use = False
+
+            enabled_gpu_count = 0
+            for device_id, device in enumerate(sorted(gpu_devices_list, key=lambda x: x.id)):
+                if (gpu_ids is not None and device_id in gpu_ids) or (not use_gpu_ids and enabled_gpu_count < gpu_count):
+                    device.use = True
+                    enabled_gpu_count += 1
+                else:
+                    device.use = False
+
+
         
         # Setup additional view layers
         self.setupAdditionalViewLayers(generate_depth, generate_normal, generate_albedo)
@@ -374,8 +361,9 @@ class BaseRenderer:
             self.albedoFileOutput.base_path = ''
             albedo_filename = image_path.split('/')[-1].split('.')[-2] + '_albedo' + image_path.split('/')[-1].split('.')[-1]
             self.albedoFileOutput.file_slots[0].path = albedo_filename
-            
+
         bpy.ops.render.render(write_still=True)  # save straight to file
+
         if resize_ratio:
             bpy.ops.transform.resize(value=(
                 1/resize_ratio[0],
@@ -394,12 +382,18 @@ class BaseRenderer:
 
 class ShapeNetRenderer(BaseRenderer):
 
-    def __init__(self, generate_depth=True, generate_normal=False, generate_albedo=False, gpu_count=0):
+    def __init__(
+            self, generate_depth=True, generate_normal=False, generate_albedo=False, 
+            gpu_count=0, gpu_ids: List[int]=None, gpu_only=False, preferred_device_type=OPTIX, reset_scene=False):
         super().__init__(
             generate_depth=generate_depth, 
             generate_normal=generate_normal, 
             generate_albedo=generate_albedo,
             gpu_count=gpu_count,
+            gpu_ids=gpu_ids,
+            gpu_only=gpu_only,
+            preferred_device_type=preferred_device_type,
+            reset_scene=reset_scene,
         )
         self.setTransparency('TRANSPARENT')
 
@@ -472,210 +466,3 @@ class VoxelRenderer(BaseRenderer):
 
         # Last channel is the alpha channel (transparency)
         return im[:, :, :3], im[:, :, 3]
-
-    
-def append_path_to_model(path: str, version_dataset: int):
-    if version_dataset == 1:
-        return f'{path}/model.obj'
-    elif version_dataset == 2:
-        return f'{path}/models/model_normalized.obj'
-    else:
-        raise Exception(f'Unknown version={version_dataset}')
-
-    
-def render_model(
-        save_dir: str, file_path: str, category: str, curr_model_id: str, 
-        width: int, height: int, num_rendering: int, 
-        max_camera_dist: float, object_scale: float,
-        generate_depth: bool, gpu_count=0, overwrite=False, load_attempt=0):
-    last_render_file_path = os.path.join(
-        save_dir, category,
-        curr_model_id, f'{str(num_rendering-1).zfill(2)}.png'
-    )
-    if os.path.isfile(last_render_file_path) and not overwrite:
-        return
-
-    try:
-        try:
-            renderer = ShapeNetRenderer(generate_depth=generate_depth, gpu_count=gpu_count)
-        except KeyError as e:
-            # Sometimes blender could not proper init model and drop weird errors about light
-            # That its doesnt exist...
-            # Dump solution here is to try again render and reset scene to default, in most cases its work as exptected
-            # Reset current scene to default
-            bpy.ops.wm.read_homefile(app_template="")
-            # Try again
-            renderer = ShapeNetRenderer(generate_depth=generate_depth, gpu_count=gpu_count)
-        renderer.initialize([file_path], width, height)
-        renderer.loadModel(object_scale=object_scale)
-
-        for j in range(num_rendering):
-            # Set random viewpoint.
-            az, el, depth_ratio = list(
-                *([360, 5, 0.3] * np.random.rand(1, 3) + [0, 25, 0.65]))
-            renderer.setViewpoint(
-                az, el, 0, depth_ratio, 25, 
-                max_camera_dist=max_camera_dist
-            )
-
-            image_path = os.path.join(save_dir, category, curr_model_id, f'{str(j).zfill(2)}.png')
-
-            # This with state will silent all prints from blender into temporary file
-            # TODO: Its seems that this hack doesnt work and prints anyway printed
-            with TemporaryFile() as f, stdout_redirected(f):
-                renderer.render(
-                    load_model=False, return_image=False,
-                    clear_model=False, image_path=image_path
-                )
-        renderer.clearModel()
-        return True
-    except Exception as e:
-        traceback.print_exc()
-        print('='*20)
-        print(
-            f'Something go wrong while render: category={category}, curr_model_id={curr_model_id}. ',
-        )
-        print('='*20)
-        return False
-
-
-def test_render(
-        save_dir: str, file_path: str, category: str, curr_model_id: str, 
-        width: int, height: int, num_rendering: int,
-        max_camera_dist: float, object_scale: float,
-        generate_depth: bool, gpu_count=0):
-    renderer = ShapeNetRenderer(generate_depth=generate_depth, gpu_count=gpu_count)
-    renderer.initialize([file_path], width, height)
-    renderer.loadModel(object_scale=object_scale)
-    
-    for j in range(num_rendering):
-        # Set random viewpoint.
-        az, el, depth_ratio = list(
-            *([360, 5, 0.3] * np.random.rand(1, 3) + [0, 25, 0.65]))
-        renderer.setViewpoint(
-            az, el, 0, depth_ratio, 25, 
-            max_camera_dist=max_camera_dist
-        )
-
-        image_path = os.path.join(save_dir, category, curr_model_id, f'{str(j).zfill(2)}.png')
-
-        renderer.render(
-            load_model=False, return_image=False,
-            clear_model=False, image_path=image_path
-        )
-    renderer.clearModel()
-
-
-def main(args):    
-    if args.save_folder:
-        save_dir = args.save_folder
-        os.makedirs(save_dir, exist_ok=True)
-    else:
-        save_dir = args.base_dir
-        
-    if args.test:
-        category = '02958343'
-        model_id = '63599f1dc1511c25d76439fb95cdd2ed'
-        test_render(
-            save_dir, 
-            append_path_to_model(os.path.join(args.base_dir, category, model_id), args.dataset_version), 
-            category, model_id, 
-            args.width, args.height, args.num_rendering, 
-            args.max_camera_dist, args.object_scale, 
-            args.depth, args.gpu_count
-        )
-        return
-    if args.generate_type == 'r2n2':
-        models = R2N2_MODELS
-    elif args.generate_type == 'all':
-        models = ALL_SHAPENET_MODELS
-    elif args.generate_type == 'custom':
-        models = args.models
-        if len(models) == 0:
-            raise Exception('Generation type is custom, but size of the list of models equal to zero.')
-    else:
-        raise Exception(f'Unknown generate type = {args.generate_type}')
-    
-    # TODO: Skip bad models (aka empty folders\missing texture and etc). 
-    #       But the authors in the repo from link below noted that these examples could be less than 200 in sum,
-    #       So its not a big deal to hurry fix it\implement.
-    # There are several models which are corrupted or missing some texture, full list can be found here
-    #     https://github.com/google-research/kubric/blob/main/shapenet2kubric/shapenet_denylist.py
-
-    # Multi-process pre-rendering
-    # Blender tends to get slower after it renders few hundred models. Start
-    # over the whole pool every BATCH_SIZE models to boost the speed.
-    render_args = [
-        (
-            save_dir, 
-            append_path_to_model(os.path.join(args.base_dir, category, model_id), args.dataset_version), 
-            category, model_id, 
-            args.width, args.height, args.num_rendering, 
-            args.max_camera_dist, args.object_scale, 
-            args.depth, args.gpu_count
-        )
-            for category in models
-            for model_id in os.listdir(os.path.join(args.base_dir, category))
-    ]
-
-    render_args_batches = [
-        render_args[i * args.batch_size: min((i + 1) * args.batch_size, len(render_args))]
-        for i in range(len(render_args) // args.batch_size + 1)
-    ]
-
-    for render_args_batch in render_args_batches:
-        with Pool(processes=args.num_process) as pool:
-            pool.starmap(render_model, render_args_batch)
-    
-    
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('base_dir', type=str,
-                        help='Path to ShapeNet dataset folder.')
-    parser.add_argument('-s', '--save-folder', type=str,
-                        help='Path to save rendered images.')
-    parser.add_argument('-d', '--dataset-version', choices=[1, 2], 
-                        help='Choose version of ShapeNet dataset.', default=2)
-    parser.add_argument('-t', '--test', action='store_true',
-                        help='Generate test view from folder with id `02958343` and objects id `63599f1dc1511c25d76439fb95cd`.')
-    parser.add_argument('-b', '--batch-size', type=int, 
-                        help='How many objects to process in a single process', default=128)
-    parser.add_argument('-n', '--num-process', type=int, 
-                        help='Number of process.', default=4)
-    parser.add_argument('--width', type=int, 
-                        help='Width of rendered images.', default=127)
-    parser.add_argument('--height', type=int, 
-                        help='Height of rendered images.', default=127)
-    parser.add_argument('--num_rendering', type=int, 
-                        help='Number of renderings view per object.', default=24)
-    parser.add_argument('--max-camera-dist', type=float, 
-                        help='Maximum camera distance. '
-                        'For ShapeNet (and almost every other object) its better to live it with default value.', 
-                        default=1.75)
-    parser.add_argument('--object-scale', type=float, 
-                        help='Scale of the object. '
-                        'If value equal to 1.0, when on the ShapeNet dataset models are very close to the camera '
-                        'and final render do not corresponds to what is in r2n2 rendered dataset. '
-                        'Value by default will give almost equal results as in r2n2 renders.', 
-                        default=0.57)
-    parser.add_argument('--depth', action='store_true',
-                        help='Generate depth per view. Image view and corresponding depth will had same name, '
-                        'except name for the depth will be with tail `_depth_0001.png` '
-                        '(this name will be always same for every view). ' 
-                        'Its some sort of constraints from the blender itself. ')
-    parser.add_argument('--gpu-count', type=int, 
-                        help='How many GPUs is to use for render. GPU computation could be done in several types, '
-                        'in this situation order of attempts to set device type: OptiX, CUDA, OpenCL. '
-                        'Zero GPU count means render only via CPU.', default=1)
-    parser.add_argument('--overwrite', action='store_true',
-                        help='Overwrite images if they were created. ')
-    parser.add_argument('--generate-type', choices=['r2n2', 'all', 'custom'], 
-                        help='Type of dataset generation. ' 
-                        'R2n2 generate only 13 objects, while all generate all objects from ShapeNet. '
-                        'If custom is provided, when parameter -m must be also provided with args which object to generate',
-                        default='r2n2')
-    parser.add_argument('-m', '--models', nargs='*',
-                        help='If generation type is custom when list of models to generate will be taken from here')
-    args = parser.parse_args()
-    main(args)
-    

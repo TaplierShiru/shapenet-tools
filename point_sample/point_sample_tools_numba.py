@@ -2,7 +2,7 @@ import numpy as np
 import random
 import numba as nb
 
-from point_sample_tools import carve_voxels_alg as source_carve_voxels_alg, compress_big_voxel as source_compress_big_voxel
+from utils import carve_voxels_alg as source_carve_voxels_alg, compress_big_voxel as source_compress_big_voxel
 
 
 carve_voxels_alg = nb.njit()(source_carve_voxels_alg)

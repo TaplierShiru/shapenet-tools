@@ -1,48 +1,25 @@
+from typing import List
 import numpy as np
 import os
 import h5py
 from multiprocessing import Process, Queue
 import queue
-import time
 import argparse
 from dataclasses import dataclass
 
 from tqdm import tqdm
+
+from PIL import Image
 
 # Add utils folder
 import sys
 sys.path.append('../utils')
 import binvox_rw
 
-from point_sample_tools import find_all_files_with_exts
+from utils import find_all_files_with_exts
+from constants import *
 
-class_name_list_all = [
-    "02691156_airplane",
-    "02828884_bench",
-    "02933112_cabinet",
-    "02958343_car",
-    "03001627_chair",
-    "03211117_display",
-    "03636649_lamp",
-    "03691459_speaker",
-    "04090263_rifle",
-    "04256520_couch",
-    "04379243_table",
-    "04401088_phone",
-    "04530566_vessel",
-]
-
-dim = 64
-
-dataset_version = 2
-
-vox_size_1 = 16
-vox_size_2 = 32
-vox_size_3 = 64
-
-batch_size_1 = 16*16*16
-batch_size_2 = 16*16*16
-batch_size_3 = 16*16*16*4
+from ..render_blender.constants import FOLDER_SAVE_NAME
 
 
 @dataclass
@@ -63,19 +40,36 @@ class PreparedSingleData:
     sample_points_3: np.ndarray
     sample_values_3: np.ndarray
 
+    pixels: np.ndarray = None
+    depths: np.ndarray = None
 
-def generate_dataset(q: Queue, binvox_files_path_list, start_indx: int, end_indx: int):
+
+@dataclass
+class StoredPathData:
+    binvox_path: str
+    render_path: str
+    is_use_depth: bool = False
+    num_views: int = -1
+
+    def add_render_path(self, render_path: str, is_use_depth: bool, num_views: int) -> StoredPathData:
+        self.render_path = render_path
+        self.is_use_depth = is_use_depth
+        self.num_views = num_views
+        return self
+
+
+def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start_indx: int, end_indx: int):
     try:
         from point_sample_tools_numba import carve_voxels, sample_points_near_surface
     except Exception as e:
         print('Failed to run with numba, run via simple python...')
         from point_sample_tools import carve_voxels, sample_points_near_surface
-    for (binvox_file_path, indx) in zip(binvox_files_path_list, range(start_indx, end_indx)):
+    for (file_path, indx) in zip(args_files_path_list, range(start_indx, end_indx)):
         # In the original repo, the author read data from .mat and prepared voxels special for ShapeNet
         #   https://github.com/czq142857/IM-NET/issues/19#issuecomment-1125435519
         # In this repo for now only .binvox supported
         # TODO: Support .mat format
-        with open(binvox_file_path, 'rb') as f:
+        with open(file_path.binvox_path, 'rb') as f:
             voxel = binvox_rw.read_as_3d_array(f)
         voxel_model_256 = voxel.data
         # you need to make absolutely sure that the top direction of your shape is j-positive direction in the voxels,
@@ -97,10 +91,10 @@ def generate_dataset(q: Queue, binvox_files_path_list, start_indx: int, end_indx
         sample_voxels_1, sample_points_1, sample_values_1, exceed_flag_1 = sample_points_near_surface(
             voxel_model_256, vox_size_1, batch_size_1
         )
-        
+
         single_data = PreparedSingleData(
             indx=indx,
-            filepath=binvox_file_path,
+            filepath=file_path.binvox_path,
             sample_voxels_1=sample_voxels_1, sample_points_1=sample_points_1, sample_values_1=sample_values_1,
             
             exceed_flag_2=exceed_flag_2,
@@ -109,6 +103,41 @@ def generate_dataset(q: Queue, binvox_files_path_list, start_indx: int, end_indx
             exceed_flag_3=exceed_flag_3,
             sample_voxels_3=sample_voxels_3, sample_points_3=sample_points_3, sample_values_3=sample_values_3,
         )
+
+        # Load pixels if needed
+        if file_path.render_path:
+            images_list = []
+            if file_path.is_use_depth:
+                depth_list = []
+
+            for num_view_i in range(file_path.num_views):
+                file_image_path = os.path.join(
+                    file_path.render_path, 
+                    f'{str(num_view_i).zfill(2)}.png'
+                )
+                if not os.path.isfile(file_image_path):
+                    # TODO: Just skip such files?
+                    raise Exception('Filename image {file_image_path} is missing.')
+
+                images_list.append(
+                    np.array(Image.open(file_image_path), dtype=np.uint8)
+                )
+                if file_path.is_use_depth:
+                    file_depth_path = os.path.join(
+                        file_path.render_path, 
+                        f'{str(num_view_i).zfill(2)}_depth_0001.png'
+                    )
+                    if not os.path.isfile(file_depth_path):
+                        # TODO: Just skip such files?
+                        raise Exception('Filename depth {file_depth_path} is missing.')
+                    depth_list.append(
+                        np.array(Image.open(file_depth_path), dtype=np.uint8)[:, :, 0:1]
+                    )
+            
+            single_data.pixels = np.array(images_list, dtype=np.uint8)
+            if file_path.is_use_depth:
+                single_data.depths = np.array(depth_list, dtype=np.uint8)
+
         q.put(single_data)
 
 
@@ -129,24 +158,62 @@ def main(args):
             os.path.join(args.save_folder, f'{category}_{name_class}_statistics.txt'),
             'w', newline=''
         )
-        exceed_32 = 0
-        exceed_64 = 0
+        exceed_2 = 0
+        exceed_3 = 0
 
         binvox_files_path_list = find_all_files_with_exts(voxel_data_path, ['.binvox'])
-        num_of_binvox_files = len(binvox_files_path_list)
+        args_files_path_list = list(map(
+            lambda path_i: StoredPathData(binvox_path=path_i, render_path=None),
+            binvox_files_path_list
+        ))
+        if args.rendered_imgs_path:
+            # For each binvox file - must be render
+            args_files_path_list = map(
+                lambda path_i: path_i.add_render_path(
+                    os.path.join(
+                        args.rendered_imgs_path, 
+                        os.path.relpath(path_i.binvox_path, args.base_dir).split(os.sep)[0], # Take folder name in the category folder
+                        FOLDER_SAVE_NAME
+                    ), args.depth, args.num_rendering,
+                ),
+                args_files_path_list
+            )
+            def is_render_exist(path_i: StoredPathData):
+                if path_i.render_path is None:
+                    return False
+                
+                # Check if render exist
+                if not os.path.isfile(os.path.join(path_i.render_path, f'{str(args.num_rendering-1).zfill(2)}.png')):
+                    return False
+                
+                if args.depth and not os.path.isfile(
+                        os.path.join(path_i.render_path, f'{str(args.num_rendering-1).zfill(2)}_depth_0001.png')):
+                    return False
+
+                return True
+            # Filter files that does not have renderings - just skip them
+            args_files_path_list = list(filter(
+                is_render_exist,
+                args_files_path_list
+            ))
+        args_files_path_list = sorted(
+            args_files_path_list,
+            key=lambda x: os.path.relpath(x.binvox_path, voxel_data_path).split(os.sep)[0] # Take folder name in the category folder
+        )
+        num_of_binvox_files = len(args_files_path_list)
         
         # Make list for each process
         number_files_per_process = num_of_binvox_files // args.num_process
         args_to_generate_dataset_per_process = [
             (
-                binvox_files_path_list[i * number_files_per_process: (i+1) * number_files_per_process],
+                args_files_path_list[i * number_files_per_process: (i+1) * number_files_per_process],
                 i * number_files_per_process, (i+1) * number_files_per_process
             )
             for i in range(args.num_process-1)
         ]
         # Append the remaining files for last process
         last_indx_start = (args.num_process-1) * number_files_per_process
-        last_files = binvox_files_path_list[last_indx_start:]
+        last_files = args_files_path_list[last_indx_start:]
         args_to_generate_dataset_per_process.append(
             (
                 last_files,
@@ -157,8 +224,8 @@ def main(args):
         
         q = Queue()
         workers = [
-            Process(target=generate_dataset, args = (q, binvox_files_path_list, start_indx, end_indx)) 
-            for binvox_files_path_list, start_indx, end_indx in args_to_generate_dataset_per_process
+            Process(target=generate_dataset, args = (q, args_files_path_list, start_indx, end_indx)) 
+            for args_files_path_list, start_indx, end_indx in args_to_generate_dataset_per_process
         ]
 
         for p in workers:
@@ -176,6 +243,12 @@ def main(args):
         hdf5_file.create_dataset(f"points_{vox_size_3}", [num_of_binvox_files, batch_size_3, 3], np.uint8)
         hdf5_file.create_dataset(f"values_{vox_size_3}", [num_of_binvox_files, batch_size_3, 1], np.uint8)
 
+        # Additional data
+        if args.rendered_imgs_path:
+            hdf5_file.create_dataset(f"pixels", [num_of_binvox_files, args.height, args.width, 3], np.uint8)
+            if args.depth:
+                hdf5_file.create_dataset(f"depths", [num_of_binvox_files, args.height, args.width, 1], np.uint8)
+
         with tqdm(total=num_of_binvox_files) as pbar:
             while True:
                 item_flag = True
@@ -185,15 +258,21 @@ def main(args):
                     item_flag = False
 
                 if item_flag:
-                    exceed_32 += single_data.exceed_flag_2
-                    exceed_64 += single_data.exceed_flag_3
-                    hdf5_file["points_64"][single_data.indx,:,:] = single_data.sample_points_3
-                    hdf5_file["values_64"][single_data.indx,:,:] = single_data.sample_values_3
-                    hdf5_file["points_32"][single_data.indx,:,:] = single_data.sample_points_2
-                    hdf5_file["values_32"][single_data.indx,:,:] = single_data.sample_values_2
-                    hdf5_file["points_16"][single_data.indx,:,:] = single_data.sample_points_1
-                    hdf5_file["values_16"][single_data.indx,:,:] = single_data.sample_values_1
+                    exceed_2 += single_data.exceed_flag_2
+                    exceed_3 += single_data.exceed_flag_3
+                    hdf5_file["points_{vox_size_1}"][single_data.indx,:,:] = single_data.sample_points_1
+                    hdf5_file["values_{vox_size_1}"][single_data.indx,:,:] = single_data.sample_values_1
+                    hdf5_file["points_{vox_size_2}"][single_data.indx,:,:] = single_data.sample_points_2
+                    hdf5_file["values_{vox_size_2}"][single_data.indx,:,:] = single_data.sample_values_2
+                    hdf5_file["points_{vox_size_3}"][single_data.indx,:,:] = single_data.sample_points_3
+                    hdf5_file["values_{vox_size_3}"][single_data.indx,:,:] = single_data.sample_values_3
                     hdf5_file["voxels"][single_data.indx,:,:,:,:] = single_data.sample_voxels_3
+
+                    # Additional data
+                    if args.rendered_imgs_path:
+                        hdf5_file["pixels"][single_data.indx,:,:,:,:] = single_data.pixels
+                        if args.depth:
+                            hdf5_file["depths"][single_data.indx,:,:,:,:] = single_data.depths
 
                 is_any_process_alive = False
                 for p in workers:
@@ -204,10 +283,10 @@ def main(args):
                     break
                 pbar.update()
         fstatistics.write(f"total: {num_of_binvox_files}\n")
-        fstatistics.write(f"exceed_32: {exceed_32}\n"+str(exceed_32)+"\n")
-        fstatistics.write(f"exceed_32_ratio: {float(exceed_32)/num_of_binvox_files}\n")
-        fstatistics.write(f"exceed_64: {exceed_64}\n")
-        fstatistics.write(f"exceed_64_ratio: {float(exceed_64)/num_of_binvox_files}\n")
+        fstatistics.write(f"exceed_2: {exceed_2}\n"+str(exceed_2)+"\n")
+        fstatistics.write(f"exceed_2_ratio: {float(exceed_2)/num_of_binvox_files}\n")
+        fstatistics.write(f"exceed_3: {exceed_3}\n")
+        fstatistics.write(f"exceed_3_ratio: {float(exceed_3)/num_of_binvox_files}\n")
         
         fstatistics.close()
         hdf5_file.close()
@@ -219,6 +298,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('base_dir', type=str,
                         help='Path to ShapeNet dataset folder with binvox files.')
+    parser.add_argument('-r', '--rendered_imgs_path', type=str,
+                        help='Path to folder with rendered images by Blender.')
+    parser.add_argument('--num_rendering', type=int, 
+                        help='Number of renderings view per object.', default=24)
+    parser.add_argument('--depth', action='store_true',
+                        help='Store depth inside h5 file, otherwise only pixels are saved. ')
+    parser.add_argument('--width', type=int, 
+                        help='Width of rendered images.', default=127)
+    parser.add_argument('--height', type=int, 
+                        help='Height of rendered images.', default=127)
     parser.add_argument('-s', '--save-folder', type=str,
                         help='Path to save prepared data.', default='./')
     parser.add_argument('-d', '--dataset-version', choices=[1, 2], 

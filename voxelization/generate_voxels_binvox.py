@@ -1,6 +1,5 @@
 import os
 import argparse
-import glob
 from multiprocessing import Process
 import subprocess
 
@@ -94,18 +93,6 @@ def main(args):
 
     for p in workers:
         p.join()
-    """
-    try:
-        for p in workers:
-            p.start()
-
-        for p in workers:
-            p.join()
-    except Exception as e:
-        print('Close processes...')
-        for p in workers:
-            p.kill()
-    """
     print("finished")
 
     
