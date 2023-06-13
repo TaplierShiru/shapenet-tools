@@ -8,6 +8,7 @@ import sys
 from multiprocessing import Process
 
 import time
+from tqdm import tqdm
 
 from constants import FOLDER_SAVE_NAME, R2N2_MODELS, ALL_SHAPENET_MODELS, OPTIX, CUDA, OPENCL
 
@@ -74,7 +75,10 @@ def render_model(
             gpu_only=gpu_only, preferred_device_type=preferred_device_type
         )
         renderer.initialize([file_path], width, height)
-        renderer.loadModel(object_scale=object_scale)
+        # This state will silent all prints from blender
+        # Its possible to direct these prints to some file, but they do not needed here
+        with stdout_redirected():
+            renderer.loadModel(object_scale=object_scale)
 
         for j in range(num_rendering):
             # Set random viewpoint.
@@ -113,7 +117,7 @@ def start_render_model_single_process(render_args_batch: List[tuple],
         max_camera_dist: float, object_scale: float,
         generate_depth: bool, gpu_count=0, gpu_ids: List[int]=None,
         gpu_only=False, preferred_device_type=OPTIX, is_debug=False):
-    
+    print(f'Process info: gpu-id={gpu_ids}')
     for arg_batch in render_args_batch:
         render_model(*arg_batch, 
             width=width, height=height, num_rendering=num_rendering, 
@@ -229,17 +233,18 @@ def main(args):
             if args.gpu_ids is None:
                 # If ids not provided just give id assuming that count will be max id value
                 return [i % args.gpu_count]
-            # Otheriwse take id
+            # Otherwise take id
             return [args.gpu_ids[i % len(args.gpu_ids)]]
         
         return args.gpu_ids
 
-    for render_args_batch in render_args_batches:
+    for render_args_batch in tqdm(render_args_batches):
+        args_batch_size_per_process = len(render_args_batch) // args.num_process + 1
         workers = [
             Process(
                 target=start_render_model_single_process, 
                 args = (
-                    render_args_batch, 
+                    render_args_batch[i * args_batch_size_per_process: min((i+1) * args_batch_size_per_process, len(render_args_batch))], 
                     args.width, args.height, args.num_rendering, 
                     args.max_camera_dist, args.object_scale, 
                     args.depth, args.gpu_count, assign_gpu_id(i),
