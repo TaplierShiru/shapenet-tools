@@ -52,9 +52,9 @@ def stdout_redirected(to=os.devnull):
 
     
 def append_path_to_model(path: str, version_dataset: int):
-    if version_dataset == 1:
+    if version_dataset == '1':
         return f'{path}/model.obj'
-    elif version_dataset == 2:
+    elif version_dataset == '2':
         return f'{path}/models/model_normalized.obj'
     else:
         raise Exception(f'Unknown version={version_dataset}')
@@ -233,7 +233,7 @@ def main(args):
             if args.gpu_ids is None:
                 # If ids not provided just give id assuming that count will be max id value
                 return [i % args.gpu_count]
-            # Otherwise take id
+            # Otheriwse take id
             return [args.gpu_ids[i % len(args.gpu_ids)]]
         
         return args.gpu_ids
@@ -274,8 +274,8 @@ if __name__ == '__main__':
                         help='Path to ShapeNet dataset folder.')
     parser.add_argument('-s', '--save-folder', type=str,
                         help='Path to save rendered images.')
-    parser.add_argument('-d', '--dataset-version', choices=[1, 2], 
-                        help='Choose version of ShapeNet dataset.', default=2)
+    parser.add_argument('-d', '--dataset-version', choices=['1', '2'], 
+                        help='Choose version of ShapeNet dataset.', default='2')
     parser.add_argument('-t', '--test', action='store_true',
                         help='Generate test view from folder with id `02958343` and objects id `63599f1dc1511c25d76439fb95cd`.')
     parser.add_argument('-b', '--batch-size', type=int, 

@@ -3,6 +3,12 @@ import argparse
 from multiprocessing import Process
 import subprocess
 
+import sys
+sys.path.append('./../utils')
+import binvox_rw
+
+import numpy as np
+
 
 CONST_R2N2_DATASET = [
     '02691156', '02933112', '03001627', '03636649', 
@@ -13,7 +19,8 @@ CONST_R2N2_DATASET = [
 
 def generate_voxel(
         filename, file_save_path, voxel_size, 
-        use_virtal_screen=False, is_in_unit_cube=True, is_exact_voxel=True):
+        use_virtal_screen=False, is_in_unit_cube=True, 
+        is_exact_voxel=True, convert_sh1_to_sh2_coords=False):
     binvox_command = './binvox'
 
     if is_in_unit_cube:
@@ -40,6 +47,23 @@ def generate_voxel(
         f'mkdir -p {dir_to_save}; mv {os.path.join(dir_origin, filename_to_save)} {dir_to_save}', 
         shell=True
     )
+    if convert_sh1_to_sh2_coords:
+        # Read saved voxel
+        with open(os.path.join(dir_to_save, filename_to_save), 'rb') as f:
+            saved_voxel = binvox_rw.read_as_3d_array(f)
+
+        fixed_voxel_data = np.flip(
+            np.transpose(saved_voxel.data, (2, 1, 0) ), 
+            2
+        )
+
+        fixed_voxel = binvox_rw.Voxels(
+            fixed_voxel_data, saved_voxel.dims, saved_voxel.translate, 
+            saved_voxel.scale, saved_voxel.axis_order
+        )
+
+        with open(os.path.join(dir_to_save, filename_to_save), 'wb') as f:
+            fixed_voxel.write(f)
 
     
 def start_generate_voxels(id_process, args_batch):
@@ -59,16 +83,20 @@ def main(args):
             fpath = os.path.join(dirpath, fname)
             suffix = os.path.splitext(fname)[1].lower()
             if os.path.isfile(fpath) and (suffix in [f'.{args.type_model}']):
+                output_filepath = os.path.join(
+                    dirpath.replace(args.base_dir, args.save_folder),
+                    fname.replace(f'.{args.type_model}', '.binvox'),
+                )
+                if not args.overwrite and os.path.isfile(output_filepath):
+                    # This binvox already exist, skip it
+                    continue
                 args_to_generate_voxels.append((
-                    fpath,
-                    os.path.join(
-                        dirpath.replace(args.base_dir, args.save_folder),
-                        fname.replace(f'.{args.type_model}', '.binvox'),
-                    ),
-                    args.voxel_size,
-                    args.virtual_display, args.in_unit_cube, args.exact_generation
+                    fpath, output_filepath,
+                    args.voxel_size, args.virtual_display, 
+                    args.in_unit_cube, args.exact_generation,
+                    args.sh1_to_sh2_coords,
                 ))
-    print(f'Found models: {len(args_to_generate_voxels)}')
+    print(f'Number of binvox to generate: {len(args_to_generate_voxels)}')
     # Make list for each process
     number_files_per_process = len(args_to_generate_voxels) // args.num_process
     args_to_generate_voxels_per_process = [
@@ -120,16 +148,20 @@ if __name__ == '__main__':
                         help='Path to save binvox files.')
     parser.add_argument('-n', '--num-process', type=int, 
                         help='Number of process.', default=4)
-    parser.add_argument('--virtual-display', type='store_true', 
+    parser.add_argument('--virtual-display', action='store_true', 
                         help='Use virtual display on headless server. Package Xvfb is used.')
-    parser.add_argument('--in-unit-cube', type='store_true', 
+    parser.add_argument('--in-unit-cube', action='store_true', 
                         help='Place object in the unit cube for voxel generation. ' +
                              'Needed if generate voxels for ShapeNet dataset to center and give all objects same size. ' +
                              'More info with examples could be found in the README.')
-    parser.add_argument('--exact-generation', type='store_true', 
+    parser.add_argument('--exact-generation', action='store_true', 
                         help='Exact voxelization (any voxel intersecting a convex polygon gets set). ' +
                              'When use this type of generation display not used, ' +
                              'i.e. generation could be done even without virtual display')
+    parser.add_argument('--sh1-to-sh2-coords', action='store_true', 
+                        help='Convert coordinates from shape-net-v1 coords to v2. ')
+    parser.add_argument('--overwrite', action='store_true',
+                        help='Overwrite binvox if they were created. ')
     args = parser.parse_args()
     main(args)
     
