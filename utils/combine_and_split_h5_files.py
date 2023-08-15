@@ -53,7 +53,7 @@ class H5FilesController:
         # TODO: Compression could slow down write/read process - is it really needed?
         hdf5_file = h5py.File(name, 'w')
         if args.with_renders:
-            hdf5_file.create_dataset("pixels",     [number_elements, args.num_rendering, args.height, args.width, 3], np.uint8, compression=9)
+            hdf5_file.create_dataset("pixels",     [number_elements, args.num_rendering, args.height, args.width, len(args.image_mode)], np.uint8, compression=9)
             if args.depth:
                 hdf5_file.create_dataset("depths", [number_elements, args.num_rendering, args.height, args.width, 1], np.uint8, compression=9)
         
@@ -76,54 +76,54 @@ class H5FilesController:
             start_to: int=None, end_to: int=None, 
             start_from: int=None, end_from: int=None, class_number: int=None):
         if start_to is not None and end_to is not None and start_from is None and end_from is None:
-            hdf5_file_to[f"points_{vox_size_1}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_1}"][:]
-            hdf5_file_to[f"values_{vox_size_1}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_1}"][:]
-            hdf5_file_to[f"points_{vox_size_2}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_2}"][:]
-            hdf5_file_to[f"values_{vox_size_2}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_2}"][:]
-            hdf5_file_to[f"points_{vox_size_3}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_3}"][:]
-            hdf5_file_to[f"values_{vox_size_3}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_3}"][:]
-            hdf5_file_to["voxels"][start_to: end_to, :, :, :] = hdf5_file_from["voxels"][:]
+            hdf5_file_to[f"points_{vox_size_1}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_1}"][:]
+            hdf5_file_to[f"values_{vox_size_1}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_1}"][:]
+            hdf5_file_to[f"points_{vox_size_2}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_2}"][:]
+            hdf5_file_to[f"values_{vox_size_2}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_2}"][:]
+            hdf5_file_to[f"points_{vox_size_3}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_3}"][:]
+            hdf5_file_to[f"values_{vox_size_3}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_3}"][:]
+            hdf5_file_to["voxels"][start_to: end_to] = hdf5_file_from["voxels"][:]
 
             if self.args.with_renders:
-                hdf5_file_to["pixels"][start_to: end_to, :, :, :] = hdf5_file_from["pixels"][:]
+                hdf5_file_to["pixels"][start_to: end_to] = hdf5_file_from["pixels"][:]
                 if self.args.depth:
-                    hdf5_file_to["depths"][start_to: end_to, :, :, :] = hdf5_file_from["depths"][:]
+                    hdf5_file_to["depths"][start_to: end_to] = hdf5_file_from["depths"][:]
             
             if self.args.add_class_info:
                 if class_number is None:
                     raise Exception('Error! `add_class_info` is True, but class_number in write is None.')
                 hdf5_file_to["classes"][start_to: end_to] = np.array([class_number] * (end_to - start_to), dtype=np.uint8)
         elif start_to is not None and end_to is not None and start_from is not None and end_from is not None:
-            hdf5_file_to[f"points_{vox_size_1}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_1}"][start_from: end_from, :, :]
-            hdf5_file_to[f"values_{vox_size_1}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_1}"][start_from: end_from, :, :]
-            hdf5_file_to[f"points_{vox_size_2}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_2}"][start_from: end_from, :, :]
-            hdf5_file_to[f"values_{vox_size_2}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_2}"][start_from: end_from, :, :]
-            hdf5_file_to[f"points_{vox_size_3}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_3}"][start_from: end_from, :, :]
-            hdf5_file_to[f"values_{vox_size_3}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_3}"][start_from: end_from, :, :]
-            hdf5_file_to["voxels"][start_to: end_to, :, :, :] = hdf5_file_from["voxels"][start_from: end_from, :, :]
+            hdf5_file_to[f"points_{vox_size_1}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_1}"][start_from: end_from]
+            hdf5_file_to[f"values_{vox_size_1}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_1}"][start_from: end_from]
+            hdf5_file_to[f"points_{vox_size_2}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_2}"][start_from: end_from]
+            hdf5_file_to[f"values_{vox_size_2}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_2}"][start_from: end_from]
+            hdf5_file_to[f"points_{vox_size_3}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_3}"][start_from: end_from]
+            hdf5_file_to[f"values_{vox_size_3}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_3}"][start_from: end_from]
+            hdf5_file_to["voxels"][start_to: end_to] = hdf5_file_from["voxels"][start_from: end_from]
 
             if self.args.with_renders:
-                hdf5_file_to["pixels"][start_to: end_to, :, :, :] = hdf5_file_from["pixels"][start_from: end_from, :, :]
+                hdf5_file_to["pixels"][start_to: end_to] = hdf5_file_from["pixels"][start_from: end_from]
                 if self.args.depth:
-                    hdf5_file_to["depths"][start_to: end_to, :, :, :] = hdf5_file_from["depths"][start_from: end_from, :, :]
+                    hdf5_file_to["depths"][start_to: end_to] = hdf5_file_from["depths"][start_from: end_from]
             
             if self.args.add_class_info:
                 if class_number is None:
                     raise Exception('Error! `add_class_info` is True, but class_number in write is None.')
                 hdf5_file_to["classes"][start_to: end_to] = np.array([class_number] * (end_to - start_to), dtype=np.uint8)
         elif start_to is not None and end_to is not None and start_from is not None and end_from is None:
-            hdf5_file_to[f"points_{vox_size_1}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_1}"][start_from:, :, :]
-            hdf5_file_to[f"values_{vox_size_1}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_1}"][start_from:, :, :]
-            hdf5_file_to[f"points_{vox_size_2}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_2}"][start_from:, :, :]
-            hdf5_file_to[f"values_{vox_size_2}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_2}"][start_from:, :, :]
-            hdf5_file_to[f"points_{vox_size_3}"][start_to: end_to, :, :] = hdf5_file_from[f"points_{vox_size_3}"][start_from:, :, :]
-            hdf5_file_to[f"values_{vox_size_3}"][start_to: end_to, :, :] = hdf5_file_from[f"values_{vox_size_3}"][start_from:, :, :]
-            hdf5_file_to["voxels"][start_to: end_to, :, :, :] = hdf5_file_from["voxels"][start_from:, :, :]
+            hdf5_file_to[f"points_{vox_size_1}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_1}"][start_from:]
+            hdf5_file_to[f"values_{vox_size_1}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_1}"][start_from:]
+            hdf5_file_to[f"points_{vox_size_2}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_2}"][start_from:]
+            hdf5_file_to[f"values_{vox_size_2}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_2}"][start_from:]
+            hdf5_file_to[f"points_{vox_size_3}"][start_to: end_to] = hdf5_file_from[f"points_{vox_size_3}"][start_from:]
+            hdf5_file_to[f"values_{vox_size_3}"][start_to: end_to] = hdf5_file_from[f"values_{vox_size_3}"][start_from:]
+            hdf5_file_to["voxels"][start_to: end_to] = hdf5_file_from["voxels"][start_from:]
 
             if self.args.with_renders:
-                hdf5_file_to["pixels"][start_to: end_to, :, :, :] = hdf5_file_from["pixels"][start_from:, :, :]
+                hdf5_file_to["pixels"][start_to: end_to] = hdf5_file_from["pixels"][start_from:]
                 if self.args.depth:
-                    hdf5_file_to["depths"][start_to: end_to, :, :, :] = hdf5_file_from["depths"][start_from:, :, :]
+                    hdf5_file_to["depths"][start_to: end_to] = hdf5_file_from["depths"][start_from:]
             
             if self.args.add_class_info:
                 if class_number is None:
@@ -141,7 +141,7 @@ class H5FilesController:
         elif start_to is not None and end_to is not None and start_from is not None and end_from is not None:
             indx2model_id_to_list[start_to: end_to] = indx2model_id_to_from[start_from: end_from]
         elif start_to is not None and end_to is not None and start_from is not None and end_from is None:
-            indx2model_id_to_list[start_to: end_to, :, :] = indx2model_id_to_from[start_from:]
+            indx2model_id_to_list[start_to: end_to] = indx2model_id_to_from[start_from:]
         else:
             raise Exception('Not supported values of parameters. ')
 
@@ -208,7 +208,8 @@ def combine_and_split_h5_files(args):
 
     for h5_point_file_path in glob.glob(f'{args.h5_point_files_path}/*.hdf5'):
         hdf5_point_file = h5py.File(h5_point_file_path, 'r')
-        filename = h5_point_file_path.split('.')[0].split('_')[0]
+        _, filename = os.path.split(h5_point_file_path)
+        filename = filename.split('.')[0] # Remove type
 
         num_elements_point = hdf5_point_file['voxels'].shape[0]
         number_elements += num_elements_point
@@ -245,13 +246,19 @@ def combine_and_split_h5_files(args):
     try:
         for (filename_s, hdf5_point_file, slice_info)  in tqdm(zip(
                 h5_filename_list, h5_point_files, h5_file_slice_info_list) ):
-            class_name = class_names_list.index(filename_s)
+            class_name = class_names_list.index(filename_s) if args.add_class_info else None
+
+            indx2model_id_list = None
+            if args.create_indx2model_id_file:
+                with open(f'{args.h5_point_files_path}/{filename_s}.txt', 'r') as fr:
+                    indx2model_id_list = list(map(lambda x: x.strip(), fr.readlines()))
 
             if not args.split:
                 start, end = slice_info
                 hdf5_file_controller.write(
                     hdf5_point_file, start, end, 
-                    class_number=class_name if args.add_class_info else None
+                    indx2model_id_list=indx2model_id_list,
+                    class_number=class_name,
                 )
             else:
                 (num_train), (start_train, end_train), (start_test, end_test) = slice_info
@@ -259,7 +266,8 @@ def combine_and_split_h5_files(args):
                     hdf5_point_file, num_train, 
                     start_train, end_train, 
                     start_test, end_test, 
-                    class_number=class_name if args.add_class_info else None
+                    indx2model_id_list=indx2model_id_list,
+                    class_number=class_name,
                 )
             hdf5_point_file.close()
     except Exception as e:
@@ -275,6 +283,12 @@ if __name__ == '__main__':
                         help='Path to folder with h5 files by point sample algo.')
     parser.add_argument('--with-renders', action='store_true',
                         help='Provide this parameter to store also renders (pixels\depths). ')
+    parser.add_argument('--add-class-info', action='store_true',
+                        help='If provided, when `classes` parameter will be created where single class corresponding for single h5 file.'
+                        'Indexes assigned as sorted string. ')
+    parser.add_argument('--create-indx2model-id-file', action='store_true',
+                        help='Generated h5 files from point sample also comes with txt files '
+                        'where each string correspond to index in h5 file. ')
     parser.add_argument('-s', '--save-folder', type=str,
                         help='Path to save prepared data.', default='./')
     parser.add_argument('--depth', action='store_true',
@@ -285,6 +299,8 @@ if __name__ == '__main__':
                         help='Width of rendered images.', default=127)
     parser.add_argument('--height', type=int, 
                         help='Height of rendered images.', default=127)
+    parser.add_argument('--image-mode', choices=['L', 'RGB', 'RGBA'], 
+                        help='Mode for loaded image.', default='RGBA')
     parser.add_argument('--split', action='store_true',
                         help='To split to train and test files provide this parameter. '
                         'By default all data will be saved in single file. ')

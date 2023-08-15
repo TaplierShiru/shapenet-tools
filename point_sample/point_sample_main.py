@@ -59,7 +59,7 @@ class StoredPathData:
         return self
 
 
-def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start_indx: int, end_indx: int):
+def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start_indx: int, end_indx: int, args):
     try:
         from point_sample_tools_numba import carve_voxels, sample_points_near_surface
     except Exception as e:
@@ -77,7 +77,7 @@ def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start
             # you need to make absolutely sure that the top direction of your shape is j-positive direction in the voxels,
             # otherwise the z-carving code will not work properly. (z-carving ≈ floodfill to make the voxels solid inside)
             # you can adjust the direction of your voxels via np.flip and np.transpose.
-            if dataset_version == 1:
+            if str(args.dataset_version) == '1':
                 # add flip&transpose to convert coord from shapenet_v1 to shapenet_v2
                 voxel_model_256 = np.flip(
                     np.transpose(voxel_model_256, (2, 1, 0) ),
@@ -121,9 +121,13 @@ def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start
                         # TODO: Just skip such files?
                         raise Exception('Filename image {file_image_path} is missing.')
 
-                    images_list.append(
-                        np.array(Image.open(file_image_path).convert('RGB'), dtype=np.uint8)
-                    )
+                    loaded_image = Image.open(file_image_path)
+                    if loaded_image.size[0] != args.width or loaded_image.size[1] != args.height:
+                        loaded_image = loaded_image.resize((args.width, args.height))
+                    if loaded_image.mode != args.image_mode:
+                        loaded_image = loaded_image.convert(args.image_mode)
+                    images_list.append(np.array(loaded_image, dtype=np.uint8))
+
                     if file_path.is_use_depth:
                         file_depth_path = os.path.join(
                             file_path.render_path, 
@@ -236,7 +240,7 @@ def main(args):
         
         q = Queue()
         workers = [
-            Process(target=generate_dataset, args = (q, args_files_path_list, start_indx, end_indx)) 
+            Process(target=generate_dataset, args = (q, args_files_path_list, start_indx, end_indx, args)) 
             for args_files_path_list, start_indx, end_indx in args_to_generate_dataset_per_process
         ]
 
@@ -247,7 +251,8 @@ def main(args):
         hdf5_file = h5py.File(hdf5_path, 'w')
         # TODO: Add more voxels? Here its with size 64
         hdf5_file.create_dataset("voxels", [num_of_binvox_files, dim, dim, dim, 1], np.uint8)
-
+        # Do not add compression parameter otherwise this loop will be very slow
+        # Compression will be done when all files (h5) will be combined into single one
         hdf5_file.create_dataset(f"points_{vox_size_1}", [num_of_binvox_files, batch_size_1, 3], np.uint8)
         hdf5_file.create_dataset(f"values_{vox_size_1}", [num_of_binvox_files, batch_size_1, 1], np.uint8)
         hdf5_file.create_dataset(f"points_{vox_size_2}", [num_of_binvox_files, batch_size_2, 3], np.uint8)
@@ -257,7 +262,7 @@ def main(args):
 
         # Additional data
         if args.rendered_imgs_path:
-            hdf5_file.create_dataset(f"pixels", [num_of_binvox_files, args.num_rendering, args.height, args.width, 3], np.uint8)
+            hdf5_file.create_dataset(f"pixels", [num_of_binvox_files, args.num_rendering, args.height, args.width, len(args.image_mode)], np.uint8)
             if args.depth:
                 hdf5_file.create_dataset(f"depths", [num_of_binvox_files, args.num_rendering, args.height, args.width, 1], np.uint8)
 
@@ -320,10 +325,13 @@ if __name__ == '__main__':
                         help='Width of rendered images.', default=127)
     parser.add_argument('--height', type=int, 
                         help='Height of rendered images.', default=127)
+    parser.add_argument('--image-mode', choices=['L', 'RGB', 'RGBA'], 
+                        help='Mode for loaded image.', default='RGBA')
     parser.add_argument('-s', '--save-folder', type=str,
                         help='Path to save prepared data.', default='./')
-    parser.add_argument('-d', '--dataset-version', choices=[1, 2], 
-                        help='Choose version of ShapeNet dataset.', default=2)
+    parser.add_argument('-d', '--dataset-version', choices=['1', '2'], 
+                        help='Choose version of ShapeNet dataset. If version is 1, '
+                        'when binvox coordinates will be mapped to coordinates for version 2', default='2')
     parser.add_argument('-n', '--num-process', type=int, 
                         help='Number of process.', default=4)
     args = parser.parse_args()

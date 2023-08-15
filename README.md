@@ -5,6 +5,7 @@ Implemented tools (modules):
 1. [Voxelization via Binvox](#voxelization)
 2. [Render of the model view via Blender](#blender-model-render)
 3. [Point sample](#point_sample)
+4. [H5Files creation](#h5files_creation)
 
 Each module work independent of others tools except `utils` where placed shared code.
 
@@ -263,6 +264,17 @@ python3 point_sample_main.py /path/to/ShapeNetV2 \
 ```
 
 Example of how use point sample scripts on bunny can be found in [this notebook](./point_sample/test.ipynb).
+
+
+## H5File dataset creation
+After voxelization, render and point sample stages are ready, final data (from point-sample) stored as separate h5files, but its easy to work with file where all classes (objects) stored in single h5file which is suitable for further training or exploring dataset.
+
+Next command, will combine h5files into two files for training and testing:
+```bash
+python3 utils/combine_and_split_h5_files.py /path/to/saved/h5files \
+  --create-indx2model-id-file -s /path/to/saved/h5files --width 127 --height 127 --split --perc-train
+```
+Notice that size (Width and Height) must be the same from render stage.
 
 # License
 This project is licensed under the terms of the MIT license (see LICENSE for details).

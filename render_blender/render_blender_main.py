@@ -51,13 +51,13 @@ def stdout_redirected(to=os.devnull):
                                             # CLOEXEC may be different
 
     
-def append_path_to_model(path: str, version_dataset: int):
-    if version_dataset == '1':
+def append_path_to_model(path: str, dataset_version: int):
+    if dataset_version == '1':
         return f'{path}/model.obj'
-    elif version_dataset == '2':
+    elif dataset_version == '2':
         return f'{path}/models/model_normalized.obj'
     else:
-        raise Exception(f'Unknown version={version_dataset}')
+        raise Exception(f'Unknown version={dataset_version}')
 
     
 def render_model(

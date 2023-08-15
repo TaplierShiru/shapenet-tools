@@ -16,8 +16,6 @@ class_name_list_all = [
 
 dim = 64
 
-dataset_version = 2
-
 vox_size_1 = 16
 vox_size_2 = 32
 vox_size_3 = 64
