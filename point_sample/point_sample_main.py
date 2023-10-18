@@ -136,6 +136,7 @@ def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start
                         if not os.path.isfile(file_depth_path):
                             # TODO: Just skip such files?
                             raise Exception('Filename depth {file_depth_path} is missing.')
+                        # TODO: Depth are stored in OpenEXR format, change loading to `minexr` lib load
                         depth_list.append(
                             np.array(Image.open(file_depth_path), dtype=np.uint8)[:, :, 0:1]
                         )

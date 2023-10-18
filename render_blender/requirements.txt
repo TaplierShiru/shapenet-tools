@@ -2,3 +2,4 @@ numpy==1.24.3
 easydict
 PIL
 tqdm==4.65.0
+minexr

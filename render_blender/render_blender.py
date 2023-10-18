@@ -189,29 +189,14 @@ class BaseRenderer:
         rl = tree.nodes.new('CompositorNodeRLayers')
         
         if generate_depth:
-            map = tree.nodes.new(type="CompositorNodeMapValue")
-            # Size is chosen kind of arbitrarily, try out until you're satisfied with
-            # resulting depth map.
-            map.offset = [-1]
-            # map.size = [depth_scale]
-            map.use_min = True
-            map.min = [0]
-            map.use_max = True
-            map.max = [255]
-            self.depth_map = map
-            try:
-                links.new(rl.outputs['Depth'], self.depth_map.inputs[0])
-            except KeyError:
-                # TODO: Some versions of blender don't like this?
-                print('Error! Cant link with Z dim for depth')
-
-            invert = tree.nodes.new(type="CompositorNodeInvert")
-            links.new(map.outputs[0], invert.inputs[1])
-
             # create a file output node and set the path
             depthFileOutput = tree.nodes.new(type="CompositorNodeOutputFile")
             depthFileOutput.label = 'Depth Output'
-            links.new(invert.outputs[0], depthFileOutput.inputs[0])
+            depthFileOutput.format.file_format = "OPEN_EXR"
+            depthFileOutput.format.compression = 0 # Raw output for faster save
+            depthFileOutput.format.quality = 100 # Original quality
+            depthFileOutput.format.exr_codec = 'NONE' # Without codecs
+            links.new(rl.outputs['Depth'], depthFileOutput.inputs[0])
             self.depthFileOutput = depthFileOutput
         
         if generate_normal:
@@ -305,7 +290,7 @@ class BaseRenderer:
         
         if file_path.endswith('obj'):
             bpy.ops.import_scene.obj(filepath=file_path)
-            for i, mat in enumerate(bpy.data.materials):
+            for mat in bpy.data.materials:
                 mat.use_backface_culling = False 
         elif file_path.endswith('3ds'):
             bpy.ops.import_scene.autodesk_3ds(filepath=file_path)
@@ -338,8 +323,8 @@ class BaseRenderer:
 
         self.result_fn = image_path
         bpy.context.scene.render.filepath = image_path
+        base_dir = '/'.join(image_path.split('/')[:-1])
         if self.depthFileOutput:
-            base_dir = '/'.join(image_path.split('/')[:-1])
             self.depthFileOutput.base_path = base_dir
             # Tail name with #### means that # will be replaced with number
             # I.e. _depth_0001, _depth_0002
@@ -350,15 +335,12 @@ class BaseRenderer:
             self.depthFileOutput.file_slots[0].path = depth_filename
             
         if self.normalFileOutput:
-            # Clear base path, otherwise it wouldnt be saved where we want it
-            self.normalFileOutput.base_path = ''
-            
+            self.normalFileOutput.base_path = base_dir
             normal_filename = image_path.split('/')[-1].split('.')[-2] + '_normal' + image_path.split('/')[-1].split('.')[-1]
             self.normalFileOutput.file_slots[0].path = normal_filename
             
         if self.albedoFileOutput:
-            # Clear base path, otherwise it wouldnt be saved where we want it
-            self.albedoFileOutput.base_path = ''
+            self.albedoFileOutput.base_path = base_dir
             albedo_filename = image_path.split('/')[-1].split('.')[-2] + '_albedo' + image_path.split('/')[-1].split('.')[-1]
             self.albedoFileOutput.file_slots[0].path = albedo_filename
 

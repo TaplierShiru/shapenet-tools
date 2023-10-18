@@ -115,13 +115,13 @@ In order to use Blender with GPU (CUDA\OPTIX) and use it in Python we must build
 
 How to use code in the folder `render_blender` on ShapeNet dataset:
 ```bash
-python3 render_blender.py /path/to/ShapeNetV2 \
+python3 render_blender_main.py /path/to/ShapeNetV2 \
   -s /path/to/save/views -b 200 -n 6 --gpu-count 1
 ```
 
 If you don't have gpu, just insert `--gpu-count 0` then only CPU will be used. Also this parameter support more than one GPU, i.e. next commands are possible: `--gpu-count 2`, `--gpu-count 3` and etc... By default if more than one gpu is provided when all provded GPUs will be used in every process, which are not sufficient and not fast. To enable ids of the GPus to be uniformed distributed between all process add parameter `--gpu-uniform-id`. So, as an example:
 ```bash
-python3 render_blender.py /path/to/ShapeNetV2 \
+python3 render_blender_main.py /path/to/ShapeNetV2 \
   -s /path/to/save/views -b 200 -n 8 --gpu-count 4 --gpu-uniform-id
 ```
 
@@ -149,28 +149,28 @@ I found that single gpu for single process much faster than usage of several GPU
     <td>OPTIX</td>
     <td>4</td>
     <td>55</td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type OPTIX -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type OPTIX -t --debug</code></td>
   </tr>
   <tr style="background: grey">
     <td>GPU + CPU</td>
     <td>OPTIX</td>
     <td>1</td>
     <td><b>30</b></td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type OPTIX -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type OPTIX -t --debug</code></td>
   </tr>
   <tr>
     <td>GPU</td>
     <td>OPTIX</td>
     <td>4</td>
     <td>57</td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type OPTIX --gpu-only -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type OPTIX --gpu-only -t --debug</code></td>
   </tr>
   <tr style="background: grey">
     <td>GPU</td>
     <td>OPTIX</td>
     <td>1</td>
     <td><b>29</b></td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type OPTIX --gpu-only -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type OPTIX --gpu-only -t --debug</code></td>
   </tr>
   
   <tr>
@@ -178,28 +178,28 @@ I found that single gpu for single process much faster than usage of several GPU
     <td>CUDA</td>
     <td>4</td>
     <td>50</td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type CUDA -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type CUDA -t --debug</code></td>
   </tr>
   <tr style="background: grey">
     <td>GPU + CPU</td>
     <td>CUDA</td>
     <td>1</td>
     <td><b>29</b></td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type CUDA -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type CUDA -t --debug</code></td>
   </tr>
   <tr>
     <td>GPU</td>
     <td>CUDA</td>
     <td>4</td>
     <td>51</td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type CUDA --gpu-only -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 4 --preferred-device-type CUDA --gpu-only -t --debug</code></td>
   </tr>
   <tr style="background: grey">
     <td>GPU</td>
     <td>CUDA</td>
     <td>1</td>
     <td><b>28</b></td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type CUDA --gpu-only -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 1 --preferred-device-type CUDA --gpu-only -t --debug</code></td>
   </tr>
 
   <tr>
@@ -207,7 +207,7 @@ I found that single gpu for single process much faster than usage of several GPU
     <td>CPU</td>
     <td>0</td>
     <td>485</td>
-    <td><code>python3 render_blender.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 0 -t --debug</code></td>
+    <td><code>python3 render_blender_main.py /path/to/ShapeNetV2 -s ./test_speed --gpu-count 0 -t --debug</code></td>
   </tr>
   
 </table>
@@ -218,29 +218,28 @@ From this table difference between CUDA and OPTIX is small, and also single GPU 
 Example of how use blender scripts on bunny can be found in [this notebook](./render_blender/test.ipynb).
 
 Example of the render view on `bunny.obj` could be found [here](./render_blender/bunny_views).
-Few examples:
+Few examples of final images:
 <table>
   <tr>
     <th>
       <center>Image</center>
     </th>
-    <th>
-      <center>Depth</center>
-    </th>
   </tr>
   <tr>
-    <td><img src="./render_blender/bunny_views/00.png"></td>
-    <td><img src="./render_blender/bunny_views/00_depth_0001.png"></td>
+    <td><img src="./render_blender/bunny_views/rendering/00.png"></td>
   </tr>
   <tr>
-    <td><img src="./render_blender/bunny_views/08.png"></td>
-    <td><img src="./render_blender/bunny_views/08_depth_0001.png"></td>
+    <td><img src="./render_blender/bunny_views/rendering/01.png"></td>
   </tr>
   <tr>
-    <td><img src="./render_blender/bunny_views/16.png"></td>
-    <td><img src="./render_blender/bunny_views/16_depth_0001.png"></td>
+    <td><img src="./render_blender/bunny_views/rendering/02.png"></td>
+  </tr>
+  <tr>
+    <td><img src="./render_blender/bunny_views/rendering/03.png"></td>
   </tr>
 </table>
+
+Depth are stored in `.exp` files as [`OpenEXR`](https://openexr.com/en/latest/) format. How to read saved depth cound found in [here](./render_blender/bunny_views).
 
 Known problems:
 - Not well tested code for now. There could be some bugs with render.
