@@ -1,5 +1,5 @@
 # Execute file for voxel generation
-./voxelization/binvox
+voxelization/binvox
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

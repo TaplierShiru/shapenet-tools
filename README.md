@@ -21,6 +21,15 @@ In each module\folder you can find `requirements.txt` file with specific package
 ## Voxelization
 For voxelization [Binvox](https://www.patrickmin.com/binvox/) is used. In order to start with scripts inside this module, download corresponding program from origin site of this software: https://www.patrickmin.com/binvox/. Place it inside `voxelization` folder.
 
+You may need to install:
+```bash
+apt update && apt install libxmu6
+
+apt-get update && apt-get install xvfb # Virtual display
+```
+
+And also do not forget to get execute rights for the `binvox` (for example `chmod +x binvox`).
+
 How to use code in the folder `voxelization` on ShapeNet dataset:
 ```bash
 python3 generate_voxels_binvox.py /path/to/ShapeNetV2 \
@@ -29,6 +38,10 @@ python3 generate_voxels_binvox.py /path/to/ShapeNetV2 \
 ```
 
 Be default will be generated voxels from classes same as in work [3D-R2N2](https://github.com/chrischoy/3D-R2N2/tree/master). To generate from all categories, add `-d all`.
+
+If generation is on headless server, then virtual display via `--virtual-display`could be used.
+
+There is also parameter `--sh1-to-sh2-coords` - by default objects from ShapeNetV2 have different orientetion compare to ShapeNetV1. This parameter will transform ShapeNetV1 binvoxes to same coordinates as in ShapeNetV2.
 
 Example of how voxelize bunny can be found in [this notebook](./voxelization/test.ipynb). Notice that bunny and most others objects (not from ShapeNet) are better to generated without `--in-unit-cube` parameter, which in most cases will only be suitable for ShapeNet dataset. Also usage of the parameter `--exact-generation` is recommended because final voxel will be more accurate with this parameter.
 
