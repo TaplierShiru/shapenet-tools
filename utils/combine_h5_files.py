@@ -7,7 +7,9 @@ import argparse
 from tqdm import tqdm
 import glob
 
-from ..point_sample.constants import batch_size_1, batch_size_2, batch_size_3, vox_size_1, vox_size_2, vox_size_3, dim
+import sys
+sys.path.append('./../point_sample')
+from constants import batch_size_1, batch_size_2, batch_size_3, vox_size_1, vox_size_2, vox_size_3, dim
 
 
 class H5FilesController:
@@ -50,23 +52,22 @@ class H5FilesController:
             self.split_mode = True
     
     def _create_hdf5_file(self, name: str, number_elements: int, args):
-        # TODO: Compression could slow down write/read process - is it really needed?
         hdf5_file = h5py.File(name, 'w')
         if args.with_renders:
-            hdf5_file.create_dataset("pixels",     [number_elements, args.num_rendering, args.height, args.width, len(args.image_mode)], np.uint8, compression=9)
+            hdf5_file.create_dataset("pixels",     [number_elements, args.num_rendering, args.height, args.width, len(args.image_mode)], np.uint8, compression=args.compression)
             if args.depth:
-                hdf5_file.create_dataset("depths", [number_elements, args.num_rendering, args.height, args.width, 1], np.uint8, compression=9)
+                hdf5_file.create_dataset("depths", [number_elements, args.num_rendering, args.height, args.width, 1], np.float32, compression=args.compression)
         
         if args.add_class_info:
-            hdf5_file.create_dataset("classes", [number_elements], np.uint8, compression=9)
+            hdf5_file.create_dataset("classes", [number_elements], np.uint8, compression=args.compression)
             
-        hdf5_file.create_dataset("voxels",               [number_elements, dim, dim, dim, 1], np.uint8, compression=9)
-        hdf5_file.create_dataset(f"points_{vox_size_1}", [number_elements, batch_size_1, 3], np.uint8, compression=9)
-        hdf5_file.create_dataset(f"values_{vox_size_1}", [number_elements, batch_size_1, 1], np.uint8, compression=9)
-        hdf5_file.create_dataset(f"points_{vox_size_2}", [number_elements, batch_size_2, 3], np.uint8, compression=9)
-        hdf5_file.create_dataset(f"values_{vox_size_2}", [number_elements, batch_size_2, 1], np.uint8, compression=9)
-        hdf5_file.create_dataset(f"points_{vox_size_3}", [number_elements, batch_size_3, 3], np.uint8, compression=9)
-        hdf5_file.create_dataset(f"values_{vox_size_3}", [number_elements, batch_size_3, 1], np.uint8, compression=9)
+        hdf5_file.create_dataset("voxels",               [number_elements, dim, dim, dim, 1], np.uint8, compression=args.compression)
+        hdf5_file.create_dataset(f"points_{vox_size_1}", [number_elements, batch_size_1, 3], np.uint8, compression=args.compression)
+        hdf5_file.create_dataset(f"values_{vox_size_1}", [number_elements, batch_size_1, 1], np.uint8, compression=args.compression)
+        hdf5_file.create_dataset(f"points_{vox_size_2}", [number_elements, batch_size_2, 3], np.uint8, compression=args.compression)
+        hdf5_file.create_dataset(f"values_{vox_size_2}", [number_elements, batch_size_2, 1], np.uint8, compression=args.compression)
+        hdf5_file.create_dataset(f"points_{vox_size_3}", [number_elements, batch_size_3, 3], np.uint8, compression=args.compression)
+        hdf5_file.create_dataset(f"values_{vox_size_3}", [number_elements, batch_size_3, 1], np.uint8, compression=args.compression)
 
         return hdf5_file, [None] * number_elements if args.create_indx2model_id_file else None
 
@@ -195,6 +196,12 @@ class H5FilesController:
 
 def combine_and_split_h5_files(args):
     os.makedirs(args.save_folder, exist_ok=True)
+
+    if args.compression < 0:
+        args.compression = None
+    elif args.compression > 9:
+        args.compression = 9
+
     number_elements = 0
     number_train_elements = 0
     number_test_elements = 0
@@ -301,6 +308,9 @@ if __name__ == '__main__':
                         help='Height of rendered images.', default=127)
     parser.add_argument('--image-mode', choices=['L', 'RGB', 'RGBA'], 
                         help='Mode for loaded image.', default='RGBA')
+    parser.add_argument('--compression', type=int, default=9,
+                        help='Compression level from 0 (fast, but more memory) to 9 (slow, but low memory). '
+                        'By default equal to 9. Could be negative, when no compression will be used.')
     parser.add_argument('--split', action='store_true',
                         help='To split to train and test files provide this parameter. '
                         'By default all data will be saved in single file. ')

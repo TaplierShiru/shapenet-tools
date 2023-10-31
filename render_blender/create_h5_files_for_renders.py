@@ -29,7 +29,7 @@ def main(args):
         hdf5_file = h5py.File(hdf5_path, 'w')
         hdf5_file.create_dataset("pixels",    [num_rendered_models, args.num_rendering, args.height, args.width, 3], np.uint8)
         if args.depth:
-            hdf5_file.create_dataset("depths",    [num_rendered_models, args.num_rendering, args.height, args.width, 1], np.uint8)
+            hdf5_file.create_dataset("depths",    [num_rendered_models, args.num_rendering, args.height, args.width, 1], np.float32)
 
         for render_indx, folder_rendered_path in tqdm(zip(range(num_rendered_models), render_folder_path_list)):
             images_list = []

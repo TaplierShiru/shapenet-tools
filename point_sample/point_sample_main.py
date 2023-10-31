@@ -16,11 +16,16 @@ from PIL import Image
 import sys
 sys.path.append('./../utils')
 import binvox_rw
+try:
+    import minexr
+    IS_IMPORT_MINEXR = True
+except ImportError:
+    IS_IMPORT_MINEXR = False
+    print('Error to import minexr. Depth could not be loaded')
 
 from utils import find_all_files_with_exts
+from utils_constants import FOLDER_SAVE_NAME
 from constants import *
-
-from ..render_blender.constants import FOLDER_SAVE_NAME
 
 
 @dataclass
@@ -131,19 +136,20 @@ def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start
                     if file_path.is_use_depth:
                         file_depth_path = os.path.join(
                             file_path.render_path, 
-                            f'{str(num_view_i).zfill(2)}_depth_0001.png'
+                            f'{str(num_view_i).zfill(2)}_depth_0001.exr'
                         )
                         if not os.path.isfile(file_depth_path):
                             # TODO: Just skip such files?
                             raise Exception('Filename depth {file_depth_path} is missing.')
-                        # TODO: Depth are stored in OpenEXR format, change loading to `minexr` lib load
-                        depth_list.append(
-                            np.array(Image.open(file_depth_path), dtype=np.uint8)[:, :, 0:1]
-                        )
+                        
+                        with open(file_depth_path, 'rb') as fp:
+                            # All channels aka R,G,B store same depth. Take only one.
+                            depth_np = minexr.load(fp).select(['R']).astype(np.float32)
+                        depth_list.append(depth_np[..., 0:1])
                 
                 single_data.pixels = np.array(images_list, dtype=np.uint8)
                 if file_path.is_use_depth:
-                    single_data.depths = np.array(depth_list, dtype=np.uint8)
+                    single_data.depths = np.array(depth_list, dtype=np.float32)
 
             q.put(single_data)
         except Exception as e:
@@ -154,6 +160,13 @@ def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start
 
 def main(args):
     os.makedirs(args.save_folder, exist_ok=True)
+
+    if args.depth and not IS_IMPORT_MINEXR:
+        raise Exception(
+            'Please install py-minexr library to load depth files. \n'
+            '`pip install minexr`'
+        )
+
     for category_with_name in class_name_list_all:
         category, name_class = category_with_name.split('_')
         print(f'Prepare dataset with category {category} and name {name_class}')
@@ -198,7 +211,7 @@ def main(args):
                     return False
                 
                 if args.depth and not os.path.isfile(
-                        os.path.join(path_i.render_path, f'{str(args.num_rendering-1).zfill(2)}_depth_0001.png')):
+                        os.path.join(path_i.render_path, f'{str(args.num_rendering-1).zfill(2)}_depth_0001.exr')):
                     return False
 
                 return True
@@ -265,7 +278,7 @@ def main(args):
         if args.rendered_imgs_path:
             hdf5_file.create_dataset(f"pixels", [num_of_binvox_files, args.num_rendering, args.height, args.width, len(args.image_mode)], np.uint8)
             if args.depth:
-                hdf5_file.create_dataset(f"depths", [num_of_binvox_files, args.num_rendering, args.height, args.width, 1], np.uint8)
+                hdf5_file.create_dataset(f"depths", [num_of_binvox_files, args.num_rendering, args.height, args.width, 1], np.float32)
 
         with tqdm(total=num_of_binvox_files) as pbar:
             while True:

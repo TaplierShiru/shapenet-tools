@@ -4,8 +4,8 @@ The main purpose of this repo is to provide different tools to work with ShapeNe
 Implemented tools (modules):
 1. [Voxelization via Binvox](#voxelization)
 2. [Render of the model view via Blender](#blender-model-render)
-3. [Point sample](#point_sample)
-4. [H5Files creation](#h5files_creation)
+3. [Point sample](#point-sample)
+4. [H5Files creation](#h5files-creation)
 
 Each module work independent of others tools except `utils` where placed shared code.
 
@@ -252,41 +252,55 @@ Few examples of final images:
   </tr>
 </table>
 
-Depth are stored in `.exp` files as [`OpenEXR`](https://openexr.com/en/latest/) format. How to read saved depth cound found in [here](./render_blender/bunny_views).
+Depth are stored in `.exp` files as [`OpenEXR`](https://openexr.com/en/latest/) format. To open files fast and without any other depedency [py-minexr](https://github.com/cheind/py-minexr/tree/develop) is used. How to read saved depth cound found in [here](./render_blender/test.ipynb). Its been tested that [official OpenEXR](https://github.com/sanguinariojoe/pip-openexr) and this py-minexr libs produce similar results. Keep in mind that py-minexr produce float32, while official OpenEXR module could produce float64.
 
 Known problems:
 - Not well tested code for now. There could be some bugs with render.
 - Object files from ShapeNetV1 doesn't loaded properly by Blender with version 3.5.0. If we attempt to load it will be dropped "Segmentation fault". ShapeNetV2 works as expected and its tested.
-- Its seems that after sometime certain objects are skipped in render pipeline. Need to investigate this. For now temporary solution is to start scripts again with `--overwrite` parameter which will skip models with created views.
+- Its seems that after sometime certain objects are skipped in render pipeline. Need to investigate this. For now temporary solution is to start scripts again where by default will be skiped models with created views.
 
 
 ## Point sample
-The main purpose of this module is to generate points from big-size voxel (256<sup>3</sup>). Most of the code taken from [IM-NET dataset preparation](https://github.com/czq142857/IM-NET/tree/master/point_sampling). But personally I found this code very slow and in order to speed up it I used Numba here, which gives a huge boost compare to original code.
+The main purpose of this module is to generate points from big-size voxel (256<sup>3</sup>). Most of the code taken from [IM-NET dataset preparation](https://github.com/czq142857/IM-NET/tree/master/point_sampling). But personally I found this code very slow and in order to speed up it - I use Numba here, which gives a huge boost compare to original code.
 
 How to use code in the folder `point_sample` on ShapeNet dataset:
 ```bash
 python3 point_sample_main.py /path/to/ShapeNetV2 \
-  -s /path/to/save/views -n 6
+  -s /path/to/save/gen-points -n 6
 ```
 
 If you want to use points along with renders, you can pass folder path to the folder with renders to add them into final h5 file. Example command:
 ```bash
 python3 point_sample_main.py /path/to/ShapeNetV2 \
-  -s /path/to/save/views -n 6 -r /path/to/ShapeNetRenderingsV2
+  -s /path/to/save/gen-points -n 6 -r /path/to/ShapeNetRenderingsV2
 ```
 
 Example of how use point sample scripts on bunny can be found in [this notebook](./point_sample/test.ipynb).
 
 
 ## H5File dataset creation
-After voxelization, render and point sample stages are ready, final data (from point-sample) stored as separate h5files, but its easy to work with file where all classes (objects) stored in single h5file which is suitable for further training or exploring dataset.
+After voxelization, render and point sample stages are ready, final data (from point-sample) stored as separate h5files, but its easy to work with file where all classes (objects) stored in single h5file which is suitable for further training or exploring dataset. This can be done in utils folder.
+
+Next command (in utils folder), will combine h5files into single one:
+```bash
+python3 combine_h5_files.py /path/to/saved/h5files \
+  --create-indx2model-id-file -s /path/to/saved/h5files --width 127 --height 127
+```
 
 Next command, will combine h5files into two files for training and testing:
 ```bash
-python3 utils/combine_and_split_h5_files.py /path/to/saved/h5files \
+python3 combine_h5_files.py /path/to/saved/h5files \
   --create-indx2model-id-file -s /path/to/saved/h5files --width 127 --height 127 --split --perc-train
 ```
-Notice that size (Width and Height) must be the same from render stage.
+Notice that size (Width and Height) must be the same for every file from render stage.
+
+if you want to have certain models ids to train or test sets. You need to first create single one big h5 file, and then run:
+```bash
+python3 split_h5_file_to_train_test.py /path/to/saved/h5file/dataset.hdf5 \
+  --with-renders --width 127 --height 127 --txt-train-ids-filename-path /path/to/txt/with/ids/train_model_ids.txt
+```
+
+More arguments and their description could be found via help.
 
 # License
 This project is licensed under the terms of the MIT license (see LICENSE for details).

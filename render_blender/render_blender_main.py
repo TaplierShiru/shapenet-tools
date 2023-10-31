@@ -4,13 +4,17 @@ import os
 from typing import List
 import numpy as np
 from contextlib import contextmanager
+# Add utils folder
 import sys
+sys.path.append('./../utils')
+from utils import FOLDER_SAVE_NAME
 from multiprocessing import Process
 
 import time
 from tqdm import tqdm
 
-from constants import FOLDER_SAVE_NAME, R2N2_MODELS, ALL_SHAPENET_MODELS, OPTIX, CUDA, OPENCL
+from constants import R2N2_MODELS, ALL_SHAPENET_MODELS, OPTIX, CUDA, OPENCL
+
 
 
 @contextmanager
