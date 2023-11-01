@@ -113,6 +113,10 @@ def combine_and_split_h5_files(args):
         with_all_hdf5_file, train_hdf5_file, 
         train_ids_list, args
     )
+    # Save model ids to separate txt file
+    with open(f'{args.save_folder}/dataset_train.txt', 'w') as wf:
+        wf.writelines(map(lambda x: x + '\n', np.asarray(all_model_ids_list)[train_ids_list].tolist()))
+        
     print('Write to test file...')
     test_hdf5_file = create_hdf5_file(
         f'{args.save_folder}/dataset_test.hdf5', 
@@ -123,6 +127,9 @@ def combine_and_split_h5_files(args):
         with_all_hdf5_file, test_hdf5_file, 
         test_ids_list, args
     )
+    # Save model ids to separate txt file
+    with open(f'{args.save_folder}/dataset_test.txt', 'w') as wf:
+        wf.writelines(map(lambda x: x + '\n', np.asarray(all_model_ids_list)[test_ids_list].tolist()))
 
     train_hdf5_file.close()
     test_hdf5_file.close()
