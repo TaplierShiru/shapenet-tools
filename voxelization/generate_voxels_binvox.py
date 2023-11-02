@@ -159,7 +159,8 @@ if __name__ == '__main__':
                              'When use this type of generation display not used, ' +
                              'i.e. generation could be done even without virtual display')
     parser.add_argument('--sh1-to-sh2-coords', action='store_true', 
-                        help='Convert coordinates from shape-net-v1 coords to v2. ')
+                        help='Convert coordinates from shape-net-v1 coords to v2. '
+                        'In practise it could very slow generation, so its better to remap them in point_sample stage')
     parser.add_argument('--overwrite', action='store_true',
                         help='Overwrite binvox if they were created. ')
     args = parser.parse_args()

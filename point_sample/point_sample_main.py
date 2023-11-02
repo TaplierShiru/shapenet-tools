@@ -23,7 +23,7 @@ except ImportError:
     IS_IMPORT_MINEXR = False
     print('Error to import minexr. Depth could not be loaded')
 
-from utils import find_all_files_with_exts
+from utils import find_all_files_with_exts, alpha_composite
 from utils_constants import FOLDER_SAVE_NAME
 from constants import *
 
@@ -130,7 +130,11 @@ def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start
                     if loaded_image.size[0] != args.width or loaded_image.size[1] != args.height:
                         loaded_image = loaded_image.resize((args.width, args.height))
                     if loaded_image.mode != args.image_mode:
+                        if loaded_image.mode == 'RGBA':
+                            # Without composite operation - RGB or BW image will be with bad quality
+                            loaded_image = alpha_composite(loaded_image)
                         loaded_image = loaded_image.convert(args.image_mode)
+                
                     images_list.append(np.array(loaded_image, dtype=np.uint8))
 
                     if file_path.is_use_depth:

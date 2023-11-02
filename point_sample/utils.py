@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import random
-
+from PIL import Image
 
 
 def find_all_files_with_exts(root, exts):
@@ -196,3 +196,37 @@ def sample_points_near_surface(big_voxel: np.ndarray, dim_to_reduce: int, points
             voxel_model_temp_flag[i,j,k] = 1
             points_sampled +=1
     return sample_voxels, sample_points, sample_values, exceed_flag
+
+
+def alpha_composite(src, dst=None):
+    '''
+    Return the alpha composite of src and dst.
+
+    Parameters:
+    src -- PIL RGBA Image object
+    dst -- PIL RGBA Image object
+
+    The algorithm comes from http://en.wikipedia.org/wiki/Alpha_compositing
+    '''
+    # http://stackoverflow.com/a/3375291/190597
+    # http://stackoverflow.com/a/9166671/190597
+    if dst is None:
+        dst = Image.new('RGBA', size = src.size, color = (255, 255, 255, 255))
+    src = np.asarray(src)
+    dst = np.asarray(dst)
+    out = np.empty(src.shape, dtype = 'float')
+    alpha = np.index_exp[:, :, 3:]
+    rgb = np.index_exp[:, :, :3]
+    src_a = src[alpha]/255.0
+    dst_a = dst[alpha]/255.0
+    out[alpha] = src_a+dst_a*(1-src_a)
+    old_setting = np.seterr(invalid = 'ignore')
+    out[rgb] = (src[rgb]*src_a + dst[rgb]*dst_a*(1-src_a))/out[alpha]
+    np.seterr(**old_setting)    
+    out[alpha] *= 255
+    np.clip(out,0,255)
+    # astype('uint8') maps np.nan (and np.inf) to 0
+    out = out.astype('uint8')
+    out = Image.fromarray(out, 'RGBA')
+    return out            
+

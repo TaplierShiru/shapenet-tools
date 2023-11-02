@@ -73,7 +73,8 @@ class BaseRenderer:
 
     def __init__(
             self, generate_depth=True, generate_normal=False, generate_albedo=False, 
-            gpu_count=0, gpu_ids: List[int]=None, gpu_only=False, reset_scene=False, preferred_device_type=OPTIX):
+            gpu_count=0, gpu_ids: List[int]=None, gpu_only=False, reset_scene=False, preferred_device_type=OPTIX,
+            backface_culling=False, disable_auto_polygons_smooth=True):
         if reset_scene:
             # Sometimes blender could not proper init model and drop weird errors about light
             # That its doesnt exist...
@@ -159,6 +160,8 @@ class BaseRenderer:
         self.org_obj = org_obj
         self.camera = camera
         self.light = light_1
+        self.backface_culling = backface_culling
+        self.disable_auto_polygons_smooth = disable_auto_polygons_smooth
         self._set_lighting()
     
     def setupAdditionalViewLayers(self, generate_depth=True, generate_normal=False, generate_albedo=False):
@@ -287,11 +290,19 @@ class BaseRenderer:
     def loadModel(self, file_path=None, object_scale=1.0):
         if file_path is None:
             file_path = self.models_fn[self.model_idx]
-        
+        # TODO: Is there a way to give obj a name, or maybe somehow safer take model after load?
+        # Loaded model will have name equal to filename
+        _, filename = os.path.split(file_path)
+        # Cut type of the file
+        filename = filename.split('.')[0]
+
         if file_path.endswith('obj'):
-            bpy.ops.import_scene.obj(filepath=file_path)
-            for mat in bpy.data.materials:
-                mat.use_backface_culling = False 
+            # Legacy import for ShapeNET v1, 
+            # bpy.ops.import_scene.obj(filepath=file_path) 
+            # There is repo that support render of v1, but not sure about v2
+            #   https://github.com/DLR-RM/BlenderProc/tree/main
+            # but new one used here also works except some parameters must be changed compare to v2
+            bpy.ops.wm.obj_import(filepath=file_path)
         elif file_path.endswith('3ds'):
             bpy.ops.import_scene.autodesk_3ds(filepath=file_path)
         elif file_path.endswith('dae'):
@@ -300,16 +311,26 @@ class BaseRenderer:
         else:
             raise Exception("Loading failed: %s Model loading for type %s not Implemented" %
                             (file_path, file_path[-4:]))
+        
+        # Below stuff is needed as ShapeNet have some wrong directions for normals
+        # Solution found here:
+        #   https://github.com/DLR-RM/BlenderProc/issues/634
+        # But there are skipped part with smooth of normals 
+        # which lead to strange black lines or wrong light on obj surface
+        if self.backface_culling:
+            # v1 have right materials, but v2 dont
+            for mat in bpy.data.materials:
+                mat.use_backface_culling = True 
+        
+        if self.disable_auto_polygons_smooth:
+            # Better to use it for batch v1 and v2 versions
+            for pol in bpy.data.objects[filename].data.polygons:
+                pol.use_smooth = False
+            bpy.data.objects[filename].data.use_auto_smooth = False
+
         if object_scale != 1.0:
             # Scale loaded model to fit into the camera properly
-            # TODO: Is there a way to give obj a name, or maybe somehow safer take model after load?
-            # Loaded model will have name equal to filename
-            _, filename = os.path.split(file_path)
-            # Cut type of the file
-            filename = filename.split('.')[0]
-            for k in bpy.data.objects.keys():
-                if filename in k:
-                    bpy.data.objects[k].scale = [object_scale] * 3
+            bpy.data.objects[filename].scale = [object_scale] * 3
 
     def render(self, load_model=True, clear_model=True, resize_ratio=None,
                return_image=True, image_path=os.path.join('./tmp', 'tmp.png')):
@@ -366,7 +387,8 @@ class ShapeNetRenderer(BaseRenderer):
 
     def __init__(
             self, generate_depth=True, generate_normal=False, generate_albedo=False, 
-            gpu_count=0, gpu_ids: List[int]=None, gpu_only=False, preferred_device_type=OPTIX, reset_scene=False):
+            gpu_count=0, gpu_ids: List[int]=None, gpu_only=False, preferred_device_type=OPTIX, reset_scene=False,
+            backface_culling=False, disable_auto_polygons_smooth=True):
         super().__init__(
             generate_depth=generate_depth, 
             generate_normal=generate_normal, 
@@ -376,6 +398,7 @@ class ShapeNetRenderer(BaseRenderer):
             gpu_only=gpu_only,
             preferred_device_type=preferred_device_type,
             reset_scene=reset_scene,
+            backface_culling=backface_culling, disable_auto_polygons_smooth=disable_auto_polygons_smooth
         )
         self.setTransparency('TRANSPARENT')
 
@@ -392,11 +415,15 @@ class ShapeNetRenderer(BaseRenderer):
         self.light.rotation_mode  = 'ZXY'
         self.light.rotation_euler = (radians(45), 0, radians(90))
         self.light.data.energy = 0.7
+        #self.light.data.cycles.cast_shadow = False
+        #self.light.data.shadow_soft_size = 0
 
         light_2.location       = (0, 2, 2)
         light_2.rotation_mode  = 'ZXY'
         light_2.rotation_euler = (-radians(45), 0, radians(90))
         light_2.data.energy = 0.7
+        #light_2.data.cycles.cast_shadow = False
+        #light_2.data.shadow_soft_size = 0
 
 # TODO: Test it
 # NOTICE! Not tested here because for now not needed here

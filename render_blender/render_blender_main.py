@@ -7,7 +7,7 @@ from contextlib import contextmanager
 # Add utils folder
 import sys
 sys.path.append('./../utils')
-from utils import FOLDER_SAVE_NAME
+from utils_constants import FOLDER_SAVE_NAME
 from multiprocessing import Process
 
 import time
@@ -69,39 +69,40 @@ def render_model(
         width: int, height: int, num_rendering: int, 
         max_camera_dist: float, object_scale: float,
         generate_depth: bool, gpu_count=0, gpu_ids: List[int]=None,
-        gpu_only=False, preferred_device_type=OPTIX, is_debug=False):
+        gpu_only=False, preferred_device_type=OPTIX, 
+        backface_culling=False, disable_auto_polygons_smooth=True, is_debug=False):
     from render_blender import ShapeNetRenderer
 
     try:
         start_time = time.time()
-        renderer = ShapeNetRenderer(
-            generate_depth=generate_depth, gpu_count=gpu_count, gpu_ids=gpu_ids,
-            gpu_only=gpu_only, preferred_device_type=preferred_device_type
-        )
-        renderer.initialize([file_path], width, height)
         # This state will silent all prints from blender
         # Its possible to direct these prints to some file, but they do not needed here
+        # TODO: Load of textures still prints. 
+        #   I think its printed from some C\C++ code, so here nothing really could be done...
         with stdout_redirected():
+            renderer = ShapeNetRenderer(
+                generate_depth=generate_depth, gpu_count=gpu_count, gpu_ids=gpu_ids,
+                gpu_only=gpu_only, preferred_device_type=preferred_device_type,
+                backface_culling=backface_culling, disable_auto_polygons_smooth=disable_auto_polygons_smooth,
+            )
+            renderer.initialize([file_path], width, height)
             renderer.loadModel(object_scale=object_scale)
 
-        for j in range(num_rendering):
-            # Set random viewpoint.
-            az, el, depth_ratio = list(
-                *([360, 5, 0.3] * np.random.rand(1, 3) + [0, 25, 0.65]))
-            renderer.setViewpoint(
-                az, el, 0, depth_ratio, 25, 
-                max_camera_dist=max_camera_dist
-            )
+            for j in range(num_rendering):
+                # Set random viewpoint.
+                az, el, depth_ratio = list(
+                    *([360, 5, 0.3] * np.random.rand(1, 3) + [0, 25, 0.65]))
+                renderer.setViewpoint(
+                    az, el, 0, depth_ratio, 25, 
+                    max_camera_dist=max_camera_dist
+                )
 
-            image_path = os.path.join(save_dir, category, curr_model_id, FOLDER_SAVE_NAME, f'{str(j).zfill(2)}.png')
-            # This state will silent all prints from blender
-            # Its possible to direct these prints to some file, but they do not needed here
-            with stdout_redirected():
+                image_path = os.path.join(save_dir, category, curr_model_id, FOLDER_SAVE_NAME, f'{str(j).zfill(2)}.png')
                 renderer.render(
                     load_model=False, return_image=False,
                     clear_model=False, image_path=image_path
                 )
-        renderer.clearModel()
+            renderer.clearModel()
         end_time = time.time()
         if is_debug:
             print(f'Time passed: {end_time - start_time}')
@@ -120,14 +121,17 @@ def start_render_model_single_process(render_args_batch: List[tuple],
         width: int, height: int, num_rendering: int, 
         max_camera_dist: float, object_scale: float,
         generate_depth: bool, gpu_count=0, gpu_ids: List[int]=None,
-        gpu_only=False, preferred_device_type=OPTIX, is_debug=False):
+        gpu_only=False, preferred_device_type=OPTIX, 
+        backface_culling=False, disable_auto_polygons_smooth=True, is_debug=False):
     print(f'Process info: gpu-id={gpu_ids}')
     for arg_batch in render_args_batch:
         render_model(*arg_batch, 
             width=width, height=height, num_rendering=num_rendering, 
             max_camera_dist=max_camera_dist, object_scale=object_scale,
             generate_depth=generate_depth, gpu_count=gpu_count, gpu_ids=gpu_ids,
-            gpu_only=gpu_only, preferred_device_type=preferred_device_type, is_debug=is_debug
+            gpu_only=gpu_only, preferred_device_type=preferred_device_type, 
+            backface_culling=backface_culling, disable_auto_polygons_smooth=disable_auto_polygons_smooth, 
+            is_debug=is_debug
         )
 
 
@@ -247,14 +251,15 @@ def main(args):
         workers = [
             Process(
                 target=start_render_model_single_process, 
-                args = (
-                    render_args_batch[i * args_batch_size_per_process: min((i+1) * args_batch_size_per_process, len(render_args_batch))], 
-                    args.width, args.height, args.num_rendering, 
-                    args.max_camera_dist, args.object_scale, 
-                    args.depth, args.gpu_count, assign_gpu_id(i),
-                    args.gpu_only, args.preferred_device_type,
-                    args.debug
-                )
+                kwargs = {
+                    'render_args_batch': render_args_batch[i * args_batch_size_per_process: min((i+1) * args_batch_size_per_process, len(render_args_batch))], 
+                    'width': args.width, 'height': args.height, 'num_rendering': args.num_rendering, 
+                    'max_camera_dist': args.max_camera_dist, 'object_scale': args.object_scale, 
+                    'generate_depth': args.depth, 'gpu_count': args.gpu_count, 'gpu_ids': assign_gpu_id(i),
+                    'gpu_only': args.gpu_only, 'preferred_device_type': args.preferred_device_type,
+                    'backface_culling': args.dataset_version == '2', 'disable_auto_polygons_smooth': False, 
+                    'is_debug': args.debug,
+                }
             ) 
             for i in range(args.num_process)
         ]
@@ -278,8 +283,10 @@ if __name__ == '__main__':
                         help='Path to ShapeNet dataset folder.')
     parser.add_argument('-s', '--save-folder', type=str,
                         help='Path to save rendered images.')
-    parser.add_argument('-d', '--dataset-version', choices=['1', '2'], 
-                        help='Choose version of ShapeNet dataset.', default='2')
+    parser.add_argument('-d', '--dataset-version', choices=['1', '2'],  default='2',
+                        help='Choose version of ShapeNet dataset.'
+                        'Different version have different obj files which should be loaded in proper way.'
+                        'Its recommended to render obj files from version v2. If custom data is loaded v1 could be used. ',)
     parser.add_argument('-t', '--test', action='store_true',
                         help='Generate test view from folder with id `02958343` and objects id `63599f1dc1511c25d76439fb95cd`.')
     parser.add_argument('-b', '--batch-size', type=int, 
