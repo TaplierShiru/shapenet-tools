@@ -198,9 +198,13 @@ def combine_and_split_h5_files(args):
     os.makedirs(args.save_folder, exist_ok=True)
 
     if args.compression < 0:
+        print('No compression.')
         args.compression = None
     elif args.compression > 9:
+        print('Compression bigger than 9, set to 9.')
         args.compression = 9
+    else:
+        print(f'Compression level {args.compression}')
 
     number_elements = 0
     number_train_elements = 0
@@ -313,9 +317,11 @@ if __name__ == '__main__':
                         'By default equal to 9. Could be negative, when no compression will be used.')
     parser.add_argument('--split', action='store_true',
                         help='To split to train and test files provide this parameter. '
-                        'By default all data will be saved in single file. ')
+                        'By default all data will be saved in single file. '
+                        'More flexable split presented in `split_h5_file_to_train_test.py` script. ')
     parser.add_argument('--perc-train', type=float, default=0.8,
-                        help='Percentage of training samples. By default equal to 0.8 i.e. 80% training and 20% test. ')
+                        help='Percentage of training samples. By default equal to 0.8 i.e. 80% training and 20% test. '
+                        'More flexable split presented in `split_h5_file_to_train_test.py` script. ')
     args = parser.parse_args()
     combine_and_split_h5_files(args)
     

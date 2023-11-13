@@ -104,11 +104,11 @@ def combine_and_split_h5_files(args):
     print('Open and create h5 files...')
     with_all_hdf5_file = h5py.File(args.h5_point_filename_path, 'r')
 
+    print('Write to train file...')
     train_hdf5_file = create_hdf5_file(
         f'{args.save_folder}/dataset_train.hdf5', 
         len(train_ids_list), args
     )
-    print('Write to train file...')
     train_hdf5_file = slice_certain_ids_from_h5_to_other_h5(
         with_all_hdf5_file, train_hdf5_file, 
         train_ids_list, args
@@ -122,7 +122,6 @@ def combine_and_split_h5_files(args):
         f'{args.save_folder}/dataset_test.hdf5', 
         len(test_ids_list), args
     )
-
     test_hdf5_file = slice_certain_ids_from_h5_to_other_h5(
         with_all_hdf5_file, test_hdf5_file, 
         test_ids_list, args

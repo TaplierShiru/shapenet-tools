@@ -127,12 +127,13 @@ def generate_dataset(q: Queue, args_files_path_list: List[StoredPathData], start
                         raise Exception('Filename image {file_image_path} is missing.')
 
                     loaded_image = Image.open(file_image_path)
+                    if loaded_image.mode == 'RGBA':
+                        # Without composite operation - RGB or BW image will be with bad quality
+                        loaded_image = alpha_composite(loaded_image)
+
                     if loaded_image.size[0] != args.width or loaded_image.size[1] != args.height:
                         loaded_image = loaded_image.resize((args.width, args.height))
                     if loaded_image.mode != args.image_mode:
-                        if loaded_image.mode == 'RGBA':
-                            # Without composite operation - RGB or BW image will be with bad quality
-                            loaded_image = alpha_composite(loaded_image)
                         loaded_image = loaded_image.convert(args.image_mode)
                 
                     images_list.append(np.array(loaded_image, dtype=np.uint8))
