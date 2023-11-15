@@ -105,33 +105,40 @@ def combine_and_split_h5_files(args):
     with_all_hdf5_file = h5py.File(args.h5_point_filename_path, 'r')
 
     print('Write to train file...')
-    train_hdf5_file = create_hdf5_file(
-        f'{args.save_folder}/dataset_train.hdf5', 
-        len(train_ids_list), args
-    )
-    train_hdf5_file = slice_certain_ids_from_h5_to_other_h5(
-        with_all_hdf5_file, train_hdf5_file, 
-        train_ids_list, args
-    )
-    # Save model ids to separate txt file
-    with open(f'{args.save_folder}/dataset_train.txt', 'w') as wf:
-        wf.writelines(map(lambda x: x + '\n', np.asarray(all_model_ids_list)[train_ids_list].tolist()))
-        
+    train_hdf5_filename_path = f'{args.save_folder}/dataset_train.hdf5'
+    if not os.path.isfile(train_hdf5_filename_path):
+        train_hdf5_file = create_hdf5_file(
+            train_hdf5_filename_path, 
+            len(train_ids_list), args
+        )
+        train_hdf5_file = slice_certain_ids_from_h5_to_other_h5(
+            with_all_hdf5_file, train_hdf5_file, 
+            train_ids_list, args
+        )
+        # Save model ids to separate txt file
+        with open(f'{args.save_folder}/dataset_train.txt', 'w') as wf:
+            wf.writelines(map(lambda x: x + '\n', np.asarray(all_model_ids_list)[train_ids_list].tolist()))
+        train_hdf5_file.close()
+    else:
+        print(f'File {train_hdf5_filename_path} already exist.')
+    
     print('Write to test file...')
-    test_hdf5_file = create_hdf5_file(
-        f'{args.save_folder}/dataset_test.hdf5', 
-        len(test_ids_list), args
-    )
-    test_hdf5_file = slice_certain_ids_from_h5_to_other_h5(
-        with_all_hdf5_file, test_hdf5_file, 
-        test_ids_list, args
-    )
-    # Save model ids to separate txt file
-    with open(f'{args.save_folder}/dataset_test.txt', 'w') as wf:
-        wf.writelines(map(lambda x: x + '\n', np.asarray(all_model_ids_list)[test_ids_list].tolist()))
-
-    train_hdf5_file.close()
-    test_hdf5_file.close()
+    test_hdf5_filename_path = f'{args.save_folder}/dataset_test.hdf5'
+    if not os.path.isfile(test_hdf5_filename_path):
+        test_hdf5_file = create_hdf5_file(
+            test_hdf5_filename_path, 
+            len(test_ids_list), args
+        )
+        test_hdf5_file = slice_certain_ids_from_h5_to_other_h5(
+            with_all_hdf5_file, test_hdf5_file, 
+            test_ids_list, args
+        )
+        # Save model ids to separate txt file
+        with open(f'{args.save_folder}/dataset_test.txt', 'w') as wf:
+            wf.writelines(map(lambda x: x + '\n', np.asarray(all_model_ids_list)[test_ids_list].tolist()))
+        test_hdf5_file.close()
+    else:
+        print(f'File {test_hdf5_filename_path} already exist.')
 
     print("finished")
     
